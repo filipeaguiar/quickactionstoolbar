@@ -43,6 +43,15 @@ function emit(channel: string, data: unknown) {
   channelListeners?.forEach((callback) => callback({ data }));
 }
 
+function wrapBroadcastPayload<T>(payload: T) {
+  return {
+    data: {
+      data: payload,
+      connectionId: "test-connection",
+    },
+  };
+}
+
 function lastSentRequestId() {
   const calls = vi.mocked(OBR.broadcast.sendMessage).mock.calls;
   const lastCall = calls[calls.length - 1];
@@ -128,7 +137,7 @@ describe("DicePlusAdapter", () => {
 
     setTimeout(() => {
       const payload = lastRollPayload();
-      emit("dice-plus/roll-result", {
+      emit("dice-plus/roll-result", wrapBroadcastPayload({
         ...dicePlusRollResult,
         rollId: payload.rollId,
         result: {
@@ -136,7 +145,7 @@ describe("DicePlusAdapter", () => {
           rollId: payload.rollId,
           diceNotation: payload.diceNotation,
         },
-      });
+      }));
     }, 15);
 
     const sequence: ResolvedRollSequence = {
@@ -202,19 +211,19 @@ describe("DicePlusAdapter", () => {
     });
 
     await vi.advanceTimersByTimeAsync(1);
-    emit("dice-plus/roll-result", {
+    emit("dice-plus/roll-result", wrapBroadcastPayload({
       ...dicePlusRollResult,
       rollId: "different-roll-id",
       result: { ...dicePlusRollResult.result, rollId: "different-roll-id" },
-    });
+    }));
 
     await vi.advanceTimersByTimeAsync(1);
     const payload = lastRollPayload();
-    emit("dice-plus/roll-result", {
+    emit("dice-plus/roll-result", wrapBroadcastPayload({
       ...dicePlusRollResult,
       rollId: payload.rollId,
       result: { ...dicePlusRollResult.result, rollId: payload.rollId },
-    });
+    }));
 
     const result = await promise;
     expect(result.success).toBe(true);
@@ -249,10 +258,10 @@ describe("DicePlusAdapter", () => {
 
     await vi.advanceTimersByTimeAsync(1);
     const payload = lastRollPayload();
-    emit("dice-plus/roll-error", {
+    emit("dice-plus/roll-error", wrapBroadcastPayload({
       rollId: payload.rollId,
       error: "Dice exploded badly",
-    });
+    }));
 
     const result = await promise;
     expect(result.success).toBe(false);

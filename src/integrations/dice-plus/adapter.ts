@@ -34,6 +34,23 @@ interface PendingRoll {
   timeoutId: ReturnType<typeof setTimeout>;
 }
 
+function unwrapBroadcastPayload<T>(eventData: unknown): T | null {
+  if (!eventData || typeof eventData !== "object") return null;
+
+  const firstLevel = eventData as Record<string, unknown>;
+  const firstData = firstLevel.data;
+  if (firstData && typeof firstData === "object") {
+    const secondLevel = firstData as Record<string, unknown>;
+    const secondData = secondLevel.data;
+    if (secondData && typeof secondData === "object") {
+      return secondData as T;
+    }
+    return firstData as T;
+  }
+
+  return eventData as T;
+}
+
 export class DicePlusAdapter implements DiceAdapter {
   id = "dice-plus";
 
@@ -128,7 +145,7 @@ export class DicePlusAdapter implements DiceAdapter {
     };
 
     const unsubResult = OBR.broadcast.onMessage(DICE_PLUS_PROTOCOL.resultChannel, (event) => {
-      const data = event.data as DicePlusRollResultEnvelope;
+      const data = unwrapBroadcastPayload<DicePlusRollResultEnvelope>(event.data);
       if (!data?.rollId) return;
       resolvePending({
         success: true,
@@ -138,7 +155,7 @@ export class DicePlusAdapter implements DiceAdapter {
     });
 
     const unsubError = OBR.broadcast.onMessage(DICE_PLUS_PROTOCOL.errorChannel, (event) => {
-      const data = event.data as DicePlusRollErrorEnvelope;
+      const data = unwrapBroadcastPayload<DicePlusRollErrorEnvelope>(event.data);
       if (!data?.rollId) return;
       resolvePending({
         success: false,
