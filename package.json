@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run icons:check",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "icons:generate": "node scripts/generate-rpg-awesome-icons.mjs",
+    "icons:check": "node scripts/generate-rpg-awesome-icons.mjs --check"
   },
   "dependencies": {
     "@owlbear-rodeo/sdk": "^3.1.0",

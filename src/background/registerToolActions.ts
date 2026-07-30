@@ -1,6 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { TOOL_ID } from "./registerTool";
-import { resolveIconUrl } from "@/utils/iconResolver";
+import { resolveIconUrl, resolveOverflowIconUrl } from "@/utils/iconResolver";
 import { openActionPopover, openOverflowPopover } from "./popoverManager";
 
 export interface SimpleActionItem {
@@ -75,7 +75,7 @@ export async function syncToolActions(actions: SimpleActionItem[]): Promise<void
       id: overflowId,
       icons: [
         {
-          icon: resolveIconUrl("dots-three"),
+          icon: resolveOverflowIconUrl(),
           label: "Mais ações...",
           filter: {
             activeTools: [TOOL_ID],

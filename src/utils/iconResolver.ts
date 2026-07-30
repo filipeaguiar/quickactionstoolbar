@@ -16,14 +16,22 @@ export const CURATED_ICONS = [
   "cog",
 ];
 
-export function resolveIconUrl(iconId: string): string {
-  const safeId = iconId.replace(/[^a-z0-9-]/g, "");
-  const baseUrl =
-    typeof window !== "undefined" && window.location && window.location.origin
-      ? window.location.origin
-      : "https://quickactionstoolbar.netlify.app";
+const DEFAULT_ICON = "crossed-swords";
+const PRODUCTION_ORIGIN = "https://quickactionstoolbar.netlify.app";
 
-  return `${baseUrl}/icons/rpg-awesome/${safeId}.svg`;
+function extensionOrigin(): string {
+  return typeof window !== "undefined" && window.location?.origin
+    ? window.location.origin
+    : PRODUCTION_ORIGIN;
+}
+
+export function resolveIconUrl(iconId: string): string {
+  const resolvedId = isValidIcon(iconId) ? iconId : DEFAULT_ICON;
+  return `${extensionOrigin()}/icons/rpg-awesome/${resolvedId}.svg`;
+}
+
+export function resolveOverflowIconUrl(): string {
+  return `${extensionOrigin()}/icons/overflow.svg`;
 }
 
 export function isValidIcon(iconId: string): boolean {
