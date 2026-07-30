@@ -2,33 +2,17 @@ import OBR from "@owlbear-rodeo/sdk";
 import { registerMainTool } from "./registerTool";
 import { syncToolActions, SimpleActionItem } from "./registerToolActions";
 import { registerContextMenu } from "./registerContextMenu";
-import { getRoomData } from "@/storage/roomProfileRepository";
+import { getOrCreateRoomData } from "@/storage/roomProfileRepository";
 
-const DEFAULT_FALLBACK_ACTIONS: SimpleActionItem[] = [
-  {
-    id: "attack-greataxe",
-    name: "Ataque com Machado Grande",
-    shortLabel: "Machado",
-    icon: "crossed-swords",
-    enabled: true,
-    sortOrder: 10,
-  },
-  {
-    id: "longbow-shot",
-    name: "Tiro com Arco Longo",
-    shortLabel: "Arco",
-    icon: "crossed-swords",
-    enabled: true,
-    sortOrder: 20,
-  },
-];
+
+
 
 async function updatePlayerBarFromRoomMetadata() {
-  const roomData = await getRoomData();
+  const roomData = await getOrCreateRoomData();
   const currentUserId = OBR.player.id;
 
-  if (roomData && roomData.playerAssignments[currentUserId]) {
-    const profileId = roomData.playerAssignments[currentUserId];
+  const profileId = roomData.playerAssignments[currentUserId] || Object.keys(roomData.profiles)[0];
+  if (profileId && roomData.profiles[profileId]) {
     const profile = roomData.profiles[profileId];
 
     if (profile && profile.actions) {
@@ -44,9 +28,6 @@ async function updatePlayerBarFromRoomMetadata() {
       return;
     }
   }
-
-  // Fallback caso ainda não exista perfil configurado no metadata da room
-  await syncToolActions(DEFAULT_FALLBACK_ACTIONS);
 }
 
 OBR.onReady(async () => {

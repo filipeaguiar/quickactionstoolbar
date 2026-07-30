@@ -16,6 +16,139 @@ export async function getRoomData(): Promise<RoomQuickActionsData | null> {
 }
 
 /**
+ * Cria a estrutura inicial de dados da sala com um perfil padrão (Machado e Arco) pronto para edição.
+ */
+export function createInitialRoomData(userId: string): RoomQuickActionsData {
+  const profileId = "profile-default";
+  return {
+    schemaVersion: 1,
+    profiles: {
+      [profileId]: {
+        id: profileId,
+        name: "Personagem Padrão",
+        ownerPlayerId: userId,
+        ownerPlayerName: "Jogador 1",
+        systemId: "dnd5e-2024",
+        variables: {
+          str: 4,
+          dex: 3,
+          prof: 2,
+        },
+        actions: [
+          {
+            id: "attack-greataxe",
+            name: "Ataque com Machado Grande",
+            shortLabel: "Machado",
+            icon: "crossed-swords",
+            kind: "ATTACK",
+            enabled: true,
+            sortOrder: 10,
+            systemId: "dnd5e-2024",
+            tags: ["melee"],
+            variantPolicy: {
+              allowNormal: true,
+              allowAdvantage: true,
+              allowDisadvantage: true,
+              allowCritical: true,
+              customVariants: [],
+            },
+            sequence: {
+              version: 1,
+              stopOnError: true,
+              steps: [
+                {
+                  id: "s1",
+                  label: "Ataque",
+                  purpose: "ATTACK",
+                  expression: "1d20 + {{str}} + {{prof}}",
+                  visibility: "PUBLIC",
+                  execute: "ALWAYS",
+                },
+                {
+                  id: "s2",
+                  label: "Dano",
+                  purpose: "DAMAGE",
+                  expression: "1d12 + {{str}}",
+                  visibility: "PUBLIC",
+                  execute: "ON_HIT",
+                  criticalBehavior: "DOUBLE_DICE",
+                },
+              ],
+            },
+          },
+          {
+            id: "longbow-shot",
+            name: "Tiro com Arco Longo",
+            shortLabel: "Arco",
+            icon: "crossed-swords",
+            kind: "ATTACK",
+            enabled: true,
+            sortOrder: 20,
+            systemId: "dnd5e-2024",
+            tags: ["ranged"],
+            variantPolicy: {
+              allowNormal: true,
+              allowAdvantage: true,
+              allowDisadvantage: true,
+              allowCritical: true,
+              customVariants: [],
+            },
+            sequence: {
+              version: 1,
+              stopOnError: true,
+              steps: [
+                {
+                  id: "s1",
+                  label: "Ataque à Distância",
+                  purpose: "ATTACK",
+                  expression: "1d20 + {{dex}} + {{prof}}",
+                  visibility: "PUBLIC",
+                  execute: "ALWAYS",
+                },
+                {
+                  id: "s2",
+                  label: "Dano Perfurante",
+                  purpose: "DAMAGE",
+                  expression: "1d8 + {{dex}}",
+                  visibility: "PUBLIC",
+                  execute: "ON_HIT",
+                  criticalBehavior: "DOUBLE_DICE",
+                },
+              ],
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: userId,
+      },
+    },
+    playerAssignments: {
+      [userId]: profileId,
+    },
+    settings: {
+      playersCanEditOwnProfiles: true,
+      maxVisibleActions: 8,
+    },
+    updatedAt: new Date().toISOString(),
+    updatedBy: userId,
+  };
+}
+
+/**
+ * Lê os dados da sala ou inicializa com os perfis padrão caso seja uma sala nova.
+ */
+export async function getOrCreateRoomData(): Promise<RoomQuickActionsData> {
+  const data = await getRoomData();
+  if (data) return data;
+
+  const currentUserId = OBR.player.id || "player-1";
+  const initialData = createInitialRoomData(currentUserId);
+  await saveRoomData(initialData);
+  return initialData;
+}
+
+/**
  * Salva os dados atualizados no metadata da Room com validação de autorização e simulação de capacidade UTF-8.
  */
 export async function saveRoomData(

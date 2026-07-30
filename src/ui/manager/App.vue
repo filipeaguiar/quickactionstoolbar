@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import OBR from "@owlbear-rodeo/sdk";
-import { getRoomData, saveRoomData as apiSaveRoomData } from "@/storage/roomProfileRepository";
+import { getOrCreateRoomData, saveRoomData as apiSaveRoomData } from "@/storage/roomProfileRepository";
 import { RoomQuickActionsData } from "@/types/storage";
 import { ActionDefinition } from "@/types/action";
 import ProfileSelector from "./components/ProfileSelector.vue";
@@ -87,7 +87,7 @@ async function loadData() {
   const role = await OBR.player.getRole();
   isGm.value = role === "GM";
   currentUserId.value = OBR.player.id;
-  roomData.value = await getRoomData();
+  roomData.value = await getOrCreateRoomData();
 
   if (roomData.value) {
     const assigned = roomData.value.playerAssignments[currentUserId.value];
