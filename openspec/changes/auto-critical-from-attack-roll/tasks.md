@@ -39,3 +39,4 @@
 - [x] 6.2 Preserve automatic critical damage for legacy DAMAGE steps with omitted `criticalBehavior`, and expose purpose/execution/critical behavior in the action editor
 - [x] 6.3 Classify a kept natural 1 as an automatic miss and skip hit/critical-dependent damage
 - [x] 6.4 Serialize toolbar synchronization, skip unchanged action sets, and test that stable ToolActions preserve popover anchors
+- [x] 6.5 Redesign the action popover as a transparent horizontal toolbar with neutral, green advantage, and red disadvantage buttons

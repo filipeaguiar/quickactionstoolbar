@@ -1,28 +1,40 @@
 <template>
   <div class="popover-panel">
-    <header class="popover-header">
-      <span class="action-icon">⚔️</span>
-      <h3 class="action-title">{{ action?.name || actionName }}</h3>
-    </header>
+    <h3 class="action-title">{{ action?.name || actionName }}</h3>
 
-    <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
-
-    <div class="variant-list">
-      <button class="variant-btn btn-normal" @click="selectVariant('NORMAL')">
-        <span class="variant-label">Rolagem Normal</span>
-        <span class="variant-desc">d20 padrão</span>
+    <div class="variant-toolbar" role="toolbar" aria-label="Modo da rolagem">
+      <button
+        class="variant-btn btn-normal"
+        :disabled="isRolling"
+        title="Rolagem normal"
+        @click="selectVariant('NORMAL')"
+      >
+        <span class="variant-label">Normal</span>
+        <span class="variant-desc">d20</span>
       </button>
 
-      <button class="variant-btn btn-advantage" @click="selectVariant('ADVANTAGE')">
+      <button
+        class="variant-btn btn-advantage"
+        :disabled="isRolling"
+        title="Rolagem com vantagem"
+        @click="selectVariant('ADVANTAGE')"
+      >
         <span class="variant-label">Vantagem</span>
         <span class="variant-desc">2d20kh1</span>
       </button>
 
-      <button class="variant-btn btn-disadvantage" @click="selectVariant('DISADVANTAGE')">
+      <button
+        class="variant-btn btn-disadvantage"
+        :disabled="isRolling"
+        title="Rolagem com desvantagem"
+        @click="selectVariant('DISADVANTAGE')"
+      >
         <span class="variant-label">Desvantagem</span>
         <span class="variant-desc">2d20kl1</span>
       </button>
     </div>
+
+    <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
   </div>
 </template>
 
@@ -40,6 +52,7 @@ const actionName = ref("Ação do Personagem");
 const action = ref<ActionDefinition | null>(null);
 const variables = ref<Record<string, number>>({});
 const errorMessage = ref("");
+const isRolling = ref(false);
 
 const systemPack = new DnD2024SystemPack();
 const diceAdapter = new DicePlusAdapter();
@@ -118,8 +131,11 @@ function createFallbackAction(): ActionDefinition {
 }
 
 async function selectVariant(variant: string) {
+  if (isRolling.value) return;
+
   console.log(`Variante selecionada: ${variant}`);
   errorMessage.value = "";
+  isRolling.value = true;
 
   try {
     const selectedAction = action.value ?? createFallbackAction();
@@ -134,11 +150,13 @@ async function selectVariant(variant: string) {
 
     if (!result.success) {
       errorMessage.value = result.error || "Falha ao executar rolagem no Dice+.";
+      isRolling.value = false;
       return;
     }
   } catch (err) {
     console.error("Erro ao executar rolagem:", err);
     errorMessage.value = err instanceof Error ? err.message : "Erro ao executar rolagem.";
+    isRolling.value = false;
     return;
   }
 
@@ -146,86 +164,132 @@ async function selectVariant(variant: string) {
     await OBR.popover.close(ACTION_POPOVER_ID);
   } catch (err) {
     console.warn("Popover close fallback:", err);
+    isRolling.value = false;
   }
 }
 </script>
 
+<style>
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+</style>
+
 <style scoped>
 .popover-panel {
+  box-sizing: border-box;
+  width: 100%;
   font-family: system-ui, -apple-system, sans-serif;
-  background-color: #0f172a;
   color: #f8fafc;
-  padding: 0.75rem;
-  border-radius: 8px;
+  padding: 0.35rem;
+  background: transparent;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-
-.popover-header {
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  border-bottom: 1px solid #334155;
-  padding-bottom: 0.5rem;
+  gap: 0.45rem;
 }
 
 .action-title {
-  font-size: 0.95rem;
-  font-weight: 600;
+  max-width: 100%;
   margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
-.variant-list {
+.variant-toolbar {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  width: 100%;
   gap: 0.35rem;
 }
 
 .variant-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 7px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  background-color: #1e293b;
-  color: #f8fafc;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  justify-content: center;
+  align-items: center;
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
 
-.variant-btn:hover {
-  background-color: #334155;
-  border-color: #6366f1;
+.variant-btn:hover:not(:disabled) {
+  filter: brightness(1.18);
+  transform: translateY(-1px);
+}
+
+.variant-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.variant-btn:disabled {
+  cursor: wait;
+  filter: saturate(0.5);
+  opacity: 0.7;
+}
+
+.btn-normal {
+  background: #475569;
+}
+
+.btn-advantage {
+  background: #15803d;
+}
+
+.btn-disadvantage {
+  background: #b91c1c;
 }
 
 .variant-label {
-  font-size: 0.85rem;
-  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .variant-desc {
-  font-size: 0.7rem;
-  color: #94a3b8;
-}
-
-.btn-advantage:hover {
-  border-color: #22c55e;
-}
-
-.btn-disadvantage:hover {
-  border-color: #ef4444;
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.61rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .error-banner {
+  box-sizing: border-box;
+  width: 100%;
   margin: 0;
-  padding: 0.5rem 0.6rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 6px;
-  background-color: rgba(239, 68, 68, 0.12);
+  background-color: rgba(127, 29, 29, 0.92);
   border: 1px solid #ef4444;
-  color: #fecaca;
-  font-size: 0.8rem;
+  color: #fee2e2;
+  font-size: 0.72rem;
+  text-align: center;
 }
 </style>

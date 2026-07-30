@@ -11,6 +11,10 @@ The action popover SHALL present Normal, Advantage, and Disadvantage as selectab
 - **WHEN** a player selects any available attack mode and the returned kept d20 is 20
 - **THEN** the UI execution flow applies critical damage automatically without requiring another user selection
 
+#### Scenario: Variant toolbar is displayed
+- **WHEN** the action popover opens
+- **THEN** it displays the attack name above a transparent horizontal toolbar with a neutral Normal button, green Advantage button, and red Disadvantage button
+
 ### Requirement: Roll Failure Feedback
 The action popover SHALL keep the execution context open long enough to report a Dice+ result error or timeout instead of logging a false successful dispatch and closing silently.
 

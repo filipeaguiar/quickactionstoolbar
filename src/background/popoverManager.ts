@@ -11,8 +11,8 @@ export async function openActionPopover(actionId: string, elementId: string): Pr
   await OBR.popover.open({
     id: ACTION_POPOVER_ID,
     url: `/action-popover.html?actionId=${encodeURIComponent(actionId)}`,
-    width: 280,
-    height: 320,
+    width: 330,
+    height: 120,
     anchorElementId: elementId,
     anchorOrigin: {
       horizontal: "CENTER",
