@@ -59,16 +59,14 @@ describe("Definition of Done (DoD) End-to-End Validation", () => {
     updatedBy: "player-1",
   };
 
-  it("DoD Criterion 4 & 6: End-to-end resolution of Advantage and Critical in SystemPack", () => {
+  it("DoD Criterion 4 & 6: End-to-end resolution of Advantage and runtime critical in SystemPack", () => {
     const pack = new DnD2024SystemPack();
     const action = sampleProfile.actions[0];
 
-    // Advantage test
     const advResult = pack.applyVariant(action, "ADVANTAGE", sampleProfile.variables);
     expect(advResult.steps[0].resolvedExpression).toBe("2d20kh1 + 4 + 3");
 
-    // Critical test
-    const critResult = pack.applyVariant(action, "CRITICAL", sampleProfile.variables);
+    const critResult = pack.applyVariant(action, "NORMAL", sampleProfile.variables, { isCritical: true });
     expect(critResult.steps[1].resolvedExpression).toBe("4d6 + 4");
   });
 

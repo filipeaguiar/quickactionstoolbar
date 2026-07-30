@@ -1,4 +1,5 @@
-import { ActionDefinition, StepPurpose } from "../types/action";
+import { ActionDefinition, CriticalBehavior, StepPurpose } from "../types/action";
+import { DicePlusRollResultDetails } from "../integrations/dice-plus/protocol";
 
 export interface ActionVariant {
   id: "NORMAL" | "ADVANTAGE" | "DISADVANTAGE" | "CRITICAL" | string;
@@ -14,6 +15,8 @@ export interface ResolvedRollStep {
   rawExpression: string;
   resolvedExpression: string;
   visibility: "PUBLIC" | "PRIVATE";
+  execute: "ALWAYS" | "ON_HIT" | "ON_CRITICAL";
+  criticalBehavior?: CriticalBehavior;
 }
 
 export interface ResolvedRollSequence {
@@ -27,6 +30,14 @@ export interface ValidationResult {
   errors: string[];
 }
 
+export interface AttackClassification {
+  isCritical: boolean;
+}
+
+export interface RuntimeResolutionOptions {
+  isCritical?: boolean;
+}
+
 export interface SystemPack {
   id: string;
   name: string;
@@ -34,7 +45,9 @@ export interface SystemPack {
   applyVariant(
     action: ActionDefinition,
     variantId: string,
-    variables: Record<string, number>
+    variables: Record<string, number>,
+    options?: RuntimeResolutionOptions
   ): ResolvedRollSequence;
+  classifyAttackResult(result: DicePlusRollResultDetails): AttackClassification;
   validateAction(action: ActionDefinition): ValidationResult;
 }

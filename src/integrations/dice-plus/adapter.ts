@@ -3,12 +3,23 @@ import { ResolvedRollSequence, ResolvedRollStep } from "../../systems/types";
 import {
   DICE_PLUS_PROTOCOL,
   DicePlusReadyResponse,
+  DicePlusRollErrorEnvelope,
   DicePlusRollRequestPayload,
+  DicePlusRollResultDetails,
+  DicePlusRollResultEnvelope,
 } from "./protocol";
 
 export interface RollDispatchResult {
   success: boolean;
   transactionId: string;
+  error?: string;
+  stepResults: StepRollResult[];
+}
+
+export interface StepRollResult {
+  success: boolean;
+  rollId: string;
+  result?: DicePlusRollResultDetails;
   error?: string;
 }
 
@@ -39,7 +50,6 @@ export class DicePlusAdapter implements DiceAdapter {
         }
       );
 
-      // Enviar mensagem no canal dice-plus/isReady para TODOS os iFrames da sala
       OBR.broadcast.sendMessage(
         DICE_PLUS_PROTOCOL.readyChannel,
         {
@@ -49,7 +59,6 @@ export class DicePlusAdapter implements DiceAdapter {
         { destination: "ALL" }
       );
 
-      // Timeout caso o Dice+ não responda
       setTimeout(() => {
         if (!responded) {
           unsubscribe();
@@ -59,22 +68,16 @@ export class DicePlusAdapter implements DiceAdapter {
     });
   }
 
-  /**
-   * Executa a rolagem de um único passo da sequência de forma assíncrona,
-   * aguardando o fim da animação/resultado enviado pelo Dice+.
-   */
   private async rollStep(
     actionName: string,
     step: ResolvedRollStep,
     playerId: string,
     playerName: string
-  ): Promise<boolean> {
+  ): Promise<StepRollResult> {
     const stepRollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const cleanAction = actionName.replace(/[+\-*/]/g, " ").trim();
     const cleanLabel = step.label.replace(/[+\-*/]/g, " ").trim();
     const cleanExpression = step.resolvedExpression.replace(/\s+/g, "");
-
-    // Usamos dois pontos (:) como separador seguro para nao conter operadores matematicos (+, -, *, /)
     const diceNotation = `${cleanExpression} # ${cleanAction}: ${cleanLabel}`;
 
     const requestPayload: DicePlusRollRequestPayload = {
@@ -92,23 +95,31 @@ export class DicePlusAdapter implements DiceAdapter {
       let finished = false;
 
       const unsubResult = OBR.broadcast.onMessage(
-        `${DICE_PLUS_PROTOCOL.source}/roll-result`,
+        DICE_PLUS_PROTOCOL.resultChannel,
         (event) => {
-          const data = event.data as any;
+          const data = event.data as DicePlusRollResultEnvelope;
           if (data && data.rollId === stepRollId) {
             cleanup();
-            resolve(true);
+            resolve({
+              success: true,
+              rollId: stepRollId,
+              result: data.result,
+            });
           }
         }
       );
 
       const unsubError = OBR.broadcast.onMessage(
-        `${DICE_PLUS_PROTOCOL.source}/roll-error`,
+        DICE_PLUS_PROTOCOL.errorChannel,
         (event) => {
-          const data = event.data as any;
+          const data = event.data as DicePlusRollErrorEnvelope;
           if (data && data.rollId === stepRollId) {
             cleanup();
-            resolve(false);
+            resolve({
+              success: false,
+              rollId: stepRollId,
+              error: data.error || data.message || "Dice+ retornou erro",
+            });
           }
         }
       );
@@ -121,20 +132,20 @@ export class DicePlusAdapter implements DiceAdapter {
         }
       }
 
-      // Enviar solicitação para o Dice+
-      OBR.broadcast.sendMessage(
-        DICE_PLUS_PROTOCOL.rollChannel,
-        requestPayload,
-        { destination: "ALL" }
-      );
+      OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.rollChannel, requestPayload, {
+        destination: "ALL",
+      });
 
-      // Timeout de segurança de 4 segundos caso o Dice+ não notifique a conclusão
       setTimeout(() => {
         if (!finished) {
           cleanup();
-          resolve(true);
+          resolve({
+            success: false,
+            rollId: stepRollId,
+            error: "Timeout aguardando resultado do Dice+",
+          });
         }
-      }, 4000);
+      }, DICE_PLUS_PROTOCOL.stepTimeoutMs);
     });
   }
 
@@ -149,6 +160,7 @@ export class DicePlusAdapter implements DiceAdapter {
         success: false,
         transactionId: "",
         error: "Dice+ indisponível",
+        stepResults: [],
       };
     }
 
@@ -156,12 +168,21 @@ export class DicePlusAdapter implements DiceAdapter {
     const playerId = OBR.player.id;
     const playerName = await OBR.player.getName();
 
-    // Executa cada passo da sequência de forma enfileirada e sequencial
+    const stepResults: StepRollResult[] = [];
+
     for (let i = 0; i < sequence.steps.length; i++) {
       const step = sequence.steps[i];
-      await this.rollStep(sequence.actionName, step, playerId, playerName);
+      const stepResult = await this.rollStep(sequence.actionName, step, playerId, playerName);
+      stepResults.push(stepResult);
+      if (!stepResult.success) {
+        return {
+          success: false,
+          transactionId,
+          error: stepResult.error,
+          stepResults,
+        };
+      }
 
-      // Intervalo de 500ms entre passos para fluidez na animação do Dice+
       if (i < sequence.steps.length - 1) {
         await new Promise((res) => setTimeout(res, 500));
       }
@@ -170,6 +191,7 @@ export class DicePlusAdapter implements DiceAdapter {
     return {
       success: true,
       transactionId,
+      stepResults,
     };
   }
 }

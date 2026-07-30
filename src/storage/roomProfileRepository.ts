@@ -16,7 +16,7 @@ export async function getRoomData(): Promise<RoomQuickActionsData | null> {
 }
 
 /**
- * Cria a estrutura inicial de dados da sala com um perfil padrão (Machado e Arco) pronto para edição.
+ * Cria a estrutura inicial de dados da sala com um perfil padrão vazio, pronto para edição.
  */
 export function createInitialRoomData(userId: string): RoomQuickActionsData {
   const profileId = "profile-default";
@@ -34,90 +34,7 @@ export function createInitialRoomData(userId: string): RoomQuickActionsData {
           dex: 3,
           prof: 2,
         },
-        actions: [
-          {
-            id: "attack-greataxe",
-            name: "Ataque com Machado Grande",
-            shortLabel: "Machado",
-            icon: "crossed-swords",
-            kind: "ATTACK",
-            enabled: true,
-            sortOrder: 10,
-            systemId: "dnd5e-2024",
-            tags: ["melee"],
-            variantPolicy: {
-              allowNormal: true,
-              allowAdvantage: true,
-              allowDisadvantage: true,
-              allowCritical: true,
-              customVariants: [],
-            },
-            sequence: {
-              version: 1,
-              stopOnError: true,
-              steps: [
-                {
-                  id: "s1",
-                  label: "Ataque",
-                  purpose: "ATTACK",
-                  expression: "1d20 + {{str}} + {{prof}}",
-                  visibility: "PUBLIC",
-                  execute: "ALWAYS",
-                },
-                {
-                  id: "s2",
-                  label: "Dano",
-                  purpose: "DAMAGE",
-                  expression: "1d12 + {{str}}",
-                  visibility: "PUBLIC",
-                  execute: "ON_HIT",
-                  criticalBehavior: "DOUBLE_DICE",
-                },
-              ],
-            },
-          },
-          {
-            id: "longbow-shot",
-            name: "Tiro com Arco Longo",
-            shortLabel: "Arco",
-            icon: "crossed-swords",
-            kind: "ATTACK",
-            enabled: true,
-            sortOrder: 20,
-            systemId: "dnd5e-2024",
-            tags: ["ranged"],
-            variantPolicy: {
-              allowNormal: true,
-              allowAdvantage: true,
-              allowDisadvantage: true,
-              allowCritical: true,
-              customVariants: [],
-            },
-            sequence: {
-              version: 1,
-              stopOnError: true,
-              steps: [
-                {
-                  id: "s1",
-                  label: "Ataque à Distância",
-                  purpose: "ATTACK",
-                  expression: "1d20 + {{dex}} + {{prof}}",
-                  visibility: "PUBLIC",
-                  execute: "ALWAYS",
-                },
-                {
-                  id: "s2",
-                  label: "Dano Perfurante",
-                  purpose: "DAMAGE",
-                  expression: "1d8 + {{dex}}",
-                  visibility: "PUBLIC",
-                  execute: "ON_HIT",
-                  criticalBehavior: "DOUBLE_DICE",
-                },
-              ],
-            },
-          },
-        ],
+        actions: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         updatedBy: userId,
@@ -136,7 +53,7 @@ export function createInitialRoomData(userId: string): RoomQuickActionsData {
 }
 
 /**
- * Lê os dados da sala ou inicializa com os perfis padrão caso seja uma sala nova.
+ * Lê os dados da sala ou inicializa um perfil padrão vazio caso seja uma sala nova.
  */
 export async function getOrCreateRoomData(): Promise<RoomQuickActionsData> {
   const data = await getRoomData();

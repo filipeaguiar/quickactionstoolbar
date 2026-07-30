@@ -5,6 +5,8 @@
       <h3 class="action-title">{{ action?.name || actionName }}</h3>
     </header>
 
+    <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+
     <div class="variant-list">
       <button class="variant-btn btn-normal" @click="selectVariant('NORMAL')">
         <span class="variant-label">Rolagem Normal</span>
@@ -20,11 +22,6 @@
         <span class="variant-label">Desvantagem</span>
         <span class="variant-desc">2d20kl1</span>
       </button>
-
-      <button class="variant-btn btn-critical" @click="selectVariant('CRITICAL')">
-        <span class="variant-label">Acerto Crítico</span>
-        <span class="variant-desc">Dados de dano duplicados</span>
-      </button>
     </div>
   </div>
 </template>
@@ -37,10 +34,12 @@ import { getRoomData } from "@/storage/roomProfileRepository";
 import { DnD2024SystemPack } from "@/systems/dnd2024";
 import { DicePlusAdapter } from "@/integrations/dice-plus/adapter";
 import { ActionDefinition } from "@/types/action";
+import { executeAction } from "@/core/actionExecutor";
 
 const actionName = ref("Ação do Personagem");
 const action = ref<ActionDefinition | null>(null);
 const variables = ref<Record<string, number>>({});
+const errorMessage = ref("");
 
 const systemPack = new DnD2024SystemPack();
 const diceAdapter = new DicePlusAdapter();
@@ -75,62 +74,72 @@ onMounted(async () => {
   }
 });
 
+function createFallbackAction(): ActionDefinition {
+  return {
+    id: "fallback-action",
+    name: actionName.value,
+    icon: "sword",
+    kind: "ATTACK",
+    enabled: true,
+    sortOrder: 0,
+    systemId: "dnd5e-2024",
+    tags: [],
+    variantPolicy: {
+      allowNormal: true,
+      allowAdvantage: true,
+      allowDisadvantage: true,
+      allowCritical: true,
+      customVariants: [],
+    },
+    sequence: {
+      version: 1,
+      stopOnError: true,
+      steps: [
+        {
+          id: "step-1",
+          label: "Ataque",
+          purpose: "ATTACK",
+          expression: "1d20 + 5",
+          visibility: "PUBLIC",
+          execute: "ALWAYS",
+        },
+        {
+          id: "step-2",
+          label: "Dano",
+          purpose: "DAMAGE",
+          expression: "1d8 + 3",
+          visibility: "PUBLIC",
+          execute: "ON_HIT",
+          criticalBehavior: "DOUBLE_DICE",
+        },
+      ],
+    },
+  };
+}
+
 async function selectVariant(variant: string) {
   console.log(`Variante selecionada: ${variant}`);
-  
-  if (action.value) {
-    try {
-      const resolvedSequence = systemPack.applyVariant(action.value, variant, variables.value);
-      console.log("Sequência resolvida:", resolvedSequence);
-      const result = await diceAdapter.roll(resolvedSequence);
-      console.log("Resultado envio Dice+:", result);
-    } catch (err) {
-      console.error("Erro ao executar rolagem:", err);
+  errorMessage.value = "";
+
+  try {
+    const selectedAction = action.value ?? createFallbackAction();
+    const result = await executeAction({
+      action: selectedAction,
+      variantId: variant,
+      variables: variables.value,
+      systemPack,
+      diceAdapter,
+    });
+    console.log("Resultado envio Dice+:", result);
+
+    if (!result.success) {
+      errorMessage.value = result.error || "Falha ao executar rolagem no Dice+.";
+      return;
     }
-  } else {
-    // Mock fallback se a ação específica não estiver no perfil
-    const mockAction: ActionDefinition = {
-      id: "fallback-action",
-      name: actionName.value,
-      icon: "sword",
-      kind: "ATTACK",
-      enabled: true,
-      sortOrder: 0,
-      systemId: "dnd5e-2024",
-      tags: [],
-      variantPolicy: {
-        allowNormal: true,
-        allowAdvantage: true,
-        allowDisadvantage: true,
-        allowCritical: true,
-        customVariants: [],
-      },
-      sequence: {
-        version: 1,
-        stopOnError: true,
-        steps: [
-          {
-            id: "step-1",
-            label: "Ataque",
-            purpose: "ATTACK",
-            expression: "1d20 + 5",
-            visibility: "PUBLIC",
-            execute: "ALWAYS",
-          },
-          {
-            id: "step-2",
-            label: "Dano",
-            purpose: "DAMAGE",
-            expression: "1d8 + 3",
-            visibility: "PUBLIC",
-            execute: "ON_HIT",
-            criticalBehavior: "DOUBLE_DICE",
-          },
-        ],
-      },
-    };
-    const resolvedSequence = systemPack.applyVariant(mockAction, variant, variables.value);
-    await diceAdapter.roll(resolvedSequence);
+  } catch (err) {
+    console.error("Erro ao executar rolagem:", err);
+    errorMessage.value = err instanceof Error ? err.message : "Erro ao executar rolagem.";
+    return;
   }
 
   try {
@@ -210,7 +219,13 @@ async function selectVariant(variant: string) {
   border-color: #ef4444;
 }
 
-.btn-critical:hover {
-  border-color: #eab308;
+.error-banner {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+  font-size: 0.8rem;
 }
 </style>

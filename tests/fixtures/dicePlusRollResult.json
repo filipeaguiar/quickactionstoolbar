@@ -1,0 +1,45 @@
+{
+  "rollId": "roll_fixture_attack_1",
+  "playerId": "player-test",
+  "playerName": "Player Test",
+  "rollTarget": "everyone",
+  "timestamp": 1785444266624,
+  "source": "quick-actions-toolbar",
+  "showResults": true,
+  "result": {
+    "rollId": "roll_fixture_attack_1",
+    "diceNotation": "1d20 # Ateste: Ataque",
+    "totalValue": 19,
+    "rollSummary": "[19] 19 Ateste: Ataque = 19",
+    "groups": [
+      {
+        "description": "Ateste: Ataque",
+        "diceType": "d20",
+        "dice": [
+          {
+            "diceId": "roll_fixture_attack_1-d20-7",
+            "rollId": "roll_fixture_attack_1",
+            "diceType": "d20",
+            "diceStyle": "sharp",
+            "value": 19,
+            "isAdvantage": false,
+            "isDisadvantage": false,
+            "kept": true,
+            "isNegative": false,
+            "groupIndex": 0,
+            "fromExplosion": false,
+            "fromRerollAdd": false,
+            "wasExploded": false,
+            "isCompounding": false,
+            "compounded": false,
+            "wasRerolled": false,
+            "wasMinimum": false,
+            "wasMaximum": false,
+            "wasRankRerolled": false
+          }
+        ],
+        "total": 19
+      }
+    ]
+  }
+}

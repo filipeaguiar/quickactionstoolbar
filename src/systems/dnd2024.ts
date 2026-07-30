@@ -3,7 +3,15 @@ import { parseExpression } from "../core/parser/parser";
 import { serializeAST } from "../core/parser/serializer";
 import { resolveVariables } from "../core/parser/resolver";
 import { ActionDefinition, StepPurpose } from "../types/action";
-import { SystemPack, ActionVariant, ResolvedRollSequence, ValidationResult } from "./types";
+import {
+  AttackClassification,
+  ActionVariant,
+  ResolvedRollSequence,
+  RuntimeResolutionOptions,
+  SystemPack,
+  ValidationResult,
+} from "./types";
+import { DicePlusRollResultDetails } from "../integrations/dice-plus/protocol";
 
 export function applyAdvantageToAST(node: ASTNode, targetPurpose: StepPurpose, currentPurpose: StepPurpose): ASTNode {
   if (currentPurpose !== targetPurpose) return node;
@@ -94,7 +102,7 @@ export class DnD2024SystemPack implements SystemPack {
 
   getAvailableVariants(action: ActionDefinition): ActionVariant[] {
     const variants: ActionVariant[] = [];
-    
+
     if (action.variantPolicy.allowNormal) {
       variants.push({ id: "NORMAL", name: "Normal" });
     }
@@ -104,11 +112,7 @@ export class DnD2024SystemPack implements SystemPack {
     if (action.variantPolicy.allowDisadvantage) {
       variants.push({ id: "DISADVANTAGE", name: "Desvantagem" });
     }
-    if (action.variantPolicy.allowCritical) {
-      variants.push({ id: "CRITICAL", name: "Crítico" });
-    }
 
-    // Custom variants
     for (const custom of action.variantPolicy.customVariants) {
       variants.push({
         id: custom.id,
@@ -123,27 +127,19 @@ export class DnD2024SystemPack implements SystemPack {
   applyVariant(
     action: ActionDefinition,
     variantId: string,
-    variables: Record<string, number>
+    variables: Record<string, number>,
+    options: RuntimeResolutionOptions = {}
   ): ResolvedRollSequence {
     const resolvedSteps = action.sequence.steps.map((step) => {
       let ast = parseExpression(step.expression);
-
-      // We resolve variables first
       ast = resolveVariables(ast, variables);
 
-      // If it's a base variant
       if (variantId === "ADVANTAGE" && ["ATTACK", "CHECK", "SAVE"].includes(step.purpose)) {
         ast = applyAdvantageToAST(ast, step.purpose, step.purpose);
       } else if (variantId === "DISADVANTAGE" && ["ATTACK", "CHECK", "SAVE"].includes(step.purpose)) {
         ast = applyDisadvantageToAST(ast, step.purpose, step.purpose);
-      } else if (variantId === "CRITICAL" && step.purpose === "DAMAGE") {
-        if (step.criticalBehavior !== "NONE") {
-          ast = applyCriticalToAST(ast, step.purpose, step.purpose);
-        }
       }
 
-      // If it's a custom variant, we would parse transformations.
-      // E.g., Reckless Attack (id: reckless_attack) might just apply D20_ADVANTAGE to ATTACK.
       const customVariant = action.variantPolicy.customVariants.find(v => v.id === variantId);
       if (customVariant) {
         for (const t of customVariant.transformations) {
@@ -156,8 +152,16 @@ export class DnD2024SystemPack implements SystemPack {
           } else if (t.type === "DOUBLE_DICE") {
             ast = applyCriticalToAST(ast, step.purpose, step.purpose);
           }
-          // ADD_MODIFIER could be added if needed, but not strictly asked for in spec.
         }
+      }
+
+      const shouldApplyCriticalDamage =
+        options.isCritical === true &&
+        step.purpose === "DAMAGE" &&
+        step.criticalBehavior === "DOUBLE_DICE";
+
+      if (shouldApplyCriticalDamage) {
+        ast = applyCriticalToAST(ast, step.purpose, step.purpose);
       }
 
       return {
@@ -167,6 +171,8 @@ export class DnD2024SystemPack implements SystemPack {
         rawExpression: step.expression,
         resolvedExpression: serializeAST(ast),
         visibility: step.visibility,
+        execute: step.execute,
+        criticalBehavior: step.criticalBehavior,
       };
     });
 
@@ -177,8 +183,15 @@ export class DnD2024SystemPack implements SystemPack {
     };
   }
 
+  classifyAttackResult(result: DicePlusRollResultDetails): AttackClassification {
+    const isCritical = result.groups.some((group) =>
+      group.dice.some((die) => die.diceType === "d20" && die.kept && die.value === 20)
+    );
+
+    return { isCritical };
+  }
+
   validateAction(action: ActionDefinition): ValidationResult {
-    // Simple validation
     const errors: string[] = [];
     if (!action.sequence || action.sequence.steps.length === 0) {
       errors.push("Action must have at least one step.");

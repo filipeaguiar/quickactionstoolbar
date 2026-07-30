@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@owlbear-rodeo/sdk", () => ({ default: {} }));
+
 import { jsonUtf8Size, simulateSaveCapacity } from "../src/storage/metadataSize";
 import { RoomQuickActionsData, ROOM_DATA_KEY } from "../src/types/storage";
+import { createInitialRoomData } from "../src/storage/roomProfileRepository";
 
 const sampleRoomData: RoomQuickActionsData = {
   schemaVersion: 1,
@@ -23,6 +27,17 @@ const sampleRoomData: RoomQuickActionsData = {
   updatedAt: "2026-07-30T14:00:00Z",
   updatedBy: "player-1",
 };
+
+describe("Initial room data", () => {
+  it("creates the default profile without actions", () => {
+    const roomData = createInitialRoomData("player-1");
+    const defaultProfile = roomData.profiles["profile-default"];
+
+    expect(defaultProfile).toBeDefined();
+    expect(defaultProfile.actions).toEqual([]);
+    expect(roomData.playerAssignments["player-1"]).toBe("profile-default");
+  });
+});
 
 describe("Storage & Capacity Measurement", () => {
   it("should calculate exact UTF-8 byte size for objects", () => {
