@@ -9,8 +9,7 @@
         title="Rolagem normal"
         @click="selectVariant('NORMAL')"
       >
-        <span class="variant-label">Normal</span>
-        <span class="variant-desc">d20</span>
+        <img class="action-mode-icon" :src="actionIconUrl" alt="" aria-hidden="true" />
       </button>
 
       <button
@@ -19,8 +18,7 @@
         title="Rolagem com vantagem"
         @click="selectVariant('ADVANTAGE')"
       >
-        <span class="variant-label">Vantagem</span>
-        <span class="variant-desc">2d20kh1</span>
+        <img class="action-mode-icon" :src="actionIconUrl" alt="" aria-hidden="true" />
       </button>
 
       <button
@@ -29,8 +27,7 @@
         title="Rolagem com desvantagem"
         @click="selectVariant('DISADVANTAGE')"
       >
-        <span class="variant-label">Desvantagem</span>
-        <span class="variant-desc">2d20kl1</span>
+        <img class="action-mode-icon" :src="actionIconUrl" alt="" aria-hidden="true" />
       </button>
     </div>
 
@@ -39,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import OBR from "@owlbear-rodeo/sdk";
 import { ACTION_POPOVER_ID } from "@/background/popoverManager";
 import { getRoomData } from "@/storage/roomProfileRepository";
@@ -47,12 +44,14 @@ import { DnD2024SystemPack } from "@/systems/dnd2024";
 import { DicePlusAdapter } from "@/integrations/dice-plus/adapter";
 import { ActionDefinition } from "@/types/action";
 import { executeAction } from "@/core/actionExecutor";
+import { resolveIconUrl } from "@/utils/iconResolver";
 
 const actionName = ref("Ação do Personagem");
 const action = ref<ActionDefinition | null>(null);
 const variables = ref<Record<string, number>>({});
 const errorMessage = ref("");
 const isRolling = ref(false);
+const actionIconUrl = computed(() => resolveIconUrl(action.value?.icon || "crossed-swords"));
 
 const systemPack = new DnD2024SystemPack();
 const diceAdapter = new DicePlusAdapter();
@@ -219,10 +218,10 @@ body,
 }
 
 .variant-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 52px;
-  padding: 0.35rem 0.45rem;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  padding: 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 7px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
@@ -262,22 +261,13 @@ body,
   background: #b91c1c;
 }
 
-.variant-label {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.variant-desc {
-  max-width: 100%;
-  overflow: hidden;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.61rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.action-mode-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  pointer-events: none;
 }
 
 .error-banner {

@@ -24,7 +24,12 @@ describe("action popover template", () => {
     expect(source).toContain("background: #475569");
     expect(source).toContain("background: #15803d");
     expect(source).toContain("background: #b91c1c");
-    expect(manager).toContain("width: 330");
+    expect(source).toContain('class="action-mode-icon"');
+    expect(source).toContain(':src="actionIconUrl"');
+    expect(source).not.toContain('class="variant-label"');
+    expect(source).toContain("width: 52px");
+    expect(source).toContain("height: 52px");
+    expect(manager).toContain("width: 190");
     expect(manager).toContain("height: 120");
   });
 });

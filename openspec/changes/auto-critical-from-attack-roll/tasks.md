@@ -31,7 +31,7 @@
 - [x] 5.2 Add System Pack tests for natural 20, modified total without natural 20, kept and discarded advantage/disadvantage dice, and `criticalBehavior: NONE`
 - [x] 5.3 Add executor tests for normal damage, automatic critical damage, conditional-step skipping, multiple attack contexts, and `stopOnError`
 - [x] 5.4 Add popover tests or component assertions confirming the manual critical option is absent and failure feedback is presented
-- [ ] 5.5 Run the full test suite and production build, then verify normal, advantage, disadvantage, automatic critical, and timeout flows in Owlbear Rodeo with Dice+
+- [x] 5.5 Run the full test suite and production build, then verify normal, advantage, disadvantage, automatic critical, and timeout flows in Owlbear Rodeo with Dice+
 
 ## 6. Runtime Compatibility and Popover Stability
 
@@ -40,3 +40,4 @@
 - [x] 6.3 Classify a kept natural 1 as an automatic miss and skip hit/critical-dependent damage
 - [x] 6.4 Serialize toolbar synchronization, skip unchanged action sets, and test that stable ToolActions preserve popover anchors
 - [x] 6.5 Redesign the action popover as a transparent horizontal toolbar with neutral, green advantage, and red disadvantage buttons
+- [x] 6.6 Render each attack mode as a compact square button containing only the configured action icon

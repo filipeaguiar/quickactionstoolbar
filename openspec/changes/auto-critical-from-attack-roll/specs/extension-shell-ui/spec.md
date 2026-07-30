@@ -13,7 +13,7 @@ The action popover SHALL present Normal, Advantage, and Disadvantage as selectab
 
 #### Scenario: Variant toolbar is displayed
 - **WHEN** the action popover opens
-- **THEN** it displays the attack name above a transparent horizontal toolbar with a neutral Normal button, green Advantage button, and red Disadvantage button
+- **THEN** it displays the attack name above a transparent horizontal toolbar with square icon-only buttons using the action icon, colored neutral for Normal, green for Advantage, and red for Disadvantage
 
 ### Requirement: Roll Failure Feedback
 The action popover SHALL keep the execution context open long enough to report a Dice+ result error or timeout instead of logging a false successful dispatch and closing silently.
