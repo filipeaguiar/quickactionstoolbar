@@ -52,7 +52,8 @@ describe("DicePlusAdapter", () => {
     expect(available).toBe(true);
     expect(OBR.broadcast.sendMessage).toHaveBeenCalledWith(
       "dice-plus/isReady",
-      expect.objectContaining({ requestId: expect.any(String) })
+      expect.objectContaining({ requestId: expect.any(String) }),
+      { destination: "ALL" }
     );
   });
 
@@ -131,7 +132,8 @@ describe("DicePlusAdapter", () => {
         playerName: "Player One",
         diceNotation: "8d6 # Damage",
         source: "quick-actions-toolbar",
-      })
+      }),
+      { destination: "ALL" }
     );
   });
 });

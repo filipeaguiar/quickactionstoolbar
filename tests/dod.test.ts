@@ -84,10 +84,10 @@ describe("Definition of Done (DoD) End-to-End Validation", () => {
     const resolved = pack.applyVariant(sampleProfile.actions[0], "NORMAL", sampleProfile.variables);
 
     const combinedNotation = resolved.steps
-      .map((s) => `${s.resolvedExpression} # ${s.label}`)
+      .map((s) => `${s.resolvedExpression.replace(/\s+/g, "")} # ${s.label}`)
       .join(" + ");
 
-    expect(combinedNotation).toBe("1d20 + 4 + 3 # Attack + 2d6 + 4 # Damage");
+    expect(combinedNotation).toBe("1d20+4+3 # Attack + 2d6+4 # Damage");
     expect(DICE_PLUS_PROTOCOL.readyChannel).toBe("dice-plus/isReady");
     expect(DICE_PLUS_PROTOCOL.rollChannel).toBe("dice-plus/roll-request");
   });

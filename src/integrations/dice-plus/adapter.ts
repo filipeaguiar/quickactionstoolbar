@@ -39,13 +39,17 @@ export class DicePlusAdapter implements DiceAdapter {
         }
       );
 
-      // Enviar mensagem no canal dice-plus/isReady
-      OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.readyChannel, {
-        requestId,
-        timestamp: Date.now(),
-      });
+      // Enviar mensagem no canal dice-plus/isReady para TODOS os iFrames da sala
+      OBR.broadcast.sendMessage(
+        DICE_PLUS_PROTOCOL.readyChannel,
+        {
+          requestId,
+          timestamp: Date.now(),
+        },
+        { destination: "ALL" }
+      );
 
-      // Timeout caso o Dice+ não esteja presente
+      // Timeout caso o Dice+ não responda
       setTimeout(() => {
         if (!responded) {
           unsubscribe();
@@ -73,10 +77,10 @@ export class DicePlusAdapter implements DiceAdapter {
     const playerId = OBR.player.id;
     const playerName = await OBR.player.getName();
 
-    // Combina todas as rolagens dos passos em notação válida do Dice+
-    // Exemplo: "1d20+7 # Ataque + 2d6+4 # Dano"
+    // Formata cada passo sem espaços internos nos operadores de math para a notação do Dice+
+    // Exemplo: "1d20+4+3 # Ataque + 1d12+4 # Dano"
     const combinedNotation = sequence.steps
-      .map((step) => `${step.resolvedExpression} # ${step.label}`)
+      .map((step) => `${step.resolvedExpression.replace(/\s+/g, "")} # ${step.label}`)
       .join(" + ");
 
     const requestPayload: DicePlusRollRequestPayload = {
@@ -90,7 +94,12 @@ export class DicePlusAdapter implements DiceAdapter {
       source: DICE_PLUS_PROTOCOL.source,
     };
 
-    await OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.rollChannel, requestPayload);
+    // OBRIGATÓRIO: { destination: "ALL" } para transitar a mensagem entre iFrames de extensões no Owlbear Rodeo
+    await OBR.broadcast.sendMessage(
+      DICE_PLUS_PROTOCOL.rollChannel,
+      requestPayload,
+      { destination: "ALL" }
+    );
 
     return {
       success: true,
