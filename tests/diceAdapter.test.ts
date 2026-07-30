@@ -130,7 +130,7 @@ describe("DicePlusAdapter", () => {
       expect.objectContaining({
         playerId: "player-123",
         playerName: "Player One",
-        diceNotation: "8d6 # Fireball - Damage",
+        diceNotation: "8d6 # Fireball: Damage",
         source: "quick-actions-toolbar",
       }),
       { destination: "ALL" }

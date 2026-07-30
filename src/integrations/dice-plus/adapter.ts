@@ -70,11 +70,12 @@ export class DicePlusAdapter implements DiceAdapter {
     playerName: string
   ): Promise<boolean> {
     const stepRollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const cleanAction = actionName.replace(/[+\-*/]/g, " ");
-    const cleanLabel = step.label.replace(/[+\-*/]/g, " ");
+    const cleanAction = actionName.replace(/[+\-*/]/g, " ").trim();
+    const cleanLabel = step.label.replace(/[+\-*/]/g, " ").trim();
     const cleanExpression = step.resolvedExpression.replace(/\s+/g, "");
 
-    const diceNotation = `${cleanExpression} # ${cleanAction} - ${cleanLabel}`;
+    // Usamos dois pontos (:) como separador seguro para nao conter operadores matematicos (+, -, *, /)
+    const diceNotation = `${cleanExpression} # ${cleanAction}: ${cleanLabel}`;
 
     const requestPayload: DicePlusRollRequestPayload = {
       rollId: stepRollId,

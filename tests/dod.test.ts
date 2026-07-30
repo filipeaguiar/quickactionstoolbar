@@ -84,11 +84,11 @@ describe("Definition of Done (DoD) End-to-End Validation", () => {
     const resolved = pack.applyVariant(sampleProfile.actions[0], "NORMAL", sampleProfile.variables);
 
     const stepNotations = resolved.steps.map(
-      (s) => `${s.resolvedExpression.replace(/\s+/g, "")} # ${resolved.actionName} - ${s.label}`
+      (s) => `${s.resolvedExpression.replace(/\s+/g, "")} # ${resolved.actionName}: ${s.label}`
     );
 
-    expect(stepNotations[0]).toBe("1d20+4+3 # Greatsword Attack - Attack");
-    expect(stepNotations[1]).toBe("2d6+4 # Greatsword Attack - Damage");
+    expect(stepNotations[0]).toBe("1d20+4+3 # Greatsword Attack: Attack");
+    expect(stepNotations[1]).toBe("2d6+4 # Greatsword Attack: Damage");
     expect(DICE_PLUS_PROTOCOL.readyChannel).toBe("dice-plus/isReady");
     expect(DICE_PLUS_PROTOCOL.rollChannel).toBe("dice-plus/roll-request");
   });
