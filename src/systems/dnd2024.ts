@@ -158,7 +158,7 @@ export class DnD2024SystemPack implements SystemPack {
       const shouldApplyCriticalDamage =
         options.isCritical === true &&
         step.purpose === "DAMAGE" &&
-        step.criticalBehavior === "DOUBLE_DICE";
+        step.criticalBehavior !== "NONE";
 
       if (shouldApplyCriticalDamage) {
         ast = applyCriticalToAST(ast, step.purpose, step.purpose);
@@ -184,11 +184,17 @@ export class DnD2024SystemPack implements SystemPack {
   }
 
   classifyAttackResult(result: DicePlusRollResultDetails): AttackClassification {
-    const isCritical = result.groups.some((group) =>
-      group.dice.some((die) => die.diceType === "d20" && die.kept && die.value === 20)
+    const keptD20s = result.groups.flatMap((group) =>
+      group.dice.filter((die) => die.diceType === "d20" && die.kept)
     );
+    const isCritical = keptD20s.some((die) => die.value === 20);
+    const isAutomaticMiss = keptD20s.some((die) => die.value === 1);
 
-    return { isCritical };
+    return {
+      isCritical,
+      isAutomaticMiss,
+      isHit: !isAutomaticMiss,
+    };
   }
 
   validateAction(action: ActionDefinition): ValidationResult {

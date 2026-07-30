@@ -141,6 +141,27 @@ describe("executeAction", () => {
     expect(vi.mocked(diceAdapter.roll).mock.calls[1][0].steps[0].resolvedExpression).toBe("2d8 + 4");
   });
 
+  it("skips hit and critical damage after a kept natural 1", async () => {
+    const diceAdapter: DiceAdapter = {
+      id: "test",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      roll: vi.fn().mockResolvedValueOnce(successResult(attackResult(1))) as any,
+    };
+
+    const result = await executeAction({
+      action,
+      variantId: "NORMAL",
+      variables: { str: 4 },
+      systemPack: new DnD2024SystemPack(),
+      diceAdapter,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.completedStepIds).toEqual(["attack"]);
+    expect(result.skippedStepIds).toEqual(["damage", "crit-bonus"]);
+    expect(diceAdapter.roll).toHaveBeenCalledTimes(1);
+  });
+
   it("stops on Dice+ failure and returns accurate progress", async () => {
     const diceAdapter: DiceAdapter = {
       id: "test",

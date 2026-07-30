@@ -9,6 +9,9 @@ const sdk = vi.hoisted(() => ({
   contextMenu: {
     create: vi.fn().mockResolvedValue(undefined),
   },
+  popover: {
+    close: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: sdk }));
@@ -59,5 +62,12 @@ describe("native Owlbear icon registration", () => {
     );
     expectAbsoluteSvgUrl(overflowAction.icons[0].icon, "/icons/overflow.svg");
     expect(overflowAction.icons[0].label).toBe("Mais ações...");
+
+    vi.clearAllMocks();
+    await Promise.all([syncToolActions(actions), syncToolActions(actions)]);
+
+    expect(sdk.tool.removeAction).not.toHaveBeenCalled();
+    expect(sdk.tool.createAction).not.toHaveBeenCalled();
+    expect(sdk.popover.close).not.toHaveBeenCalled();
   });
 });

@@ -32,3 +32,10 @@
 - [x] 5.3 Add executor tests for normal damage, automatic critical damage, conditional-step skipping, multiple attack contexts, and `stopOnError`
 - [x] 5.4 Add popover tests or component assertions confirming the manual critical option is absent and failure feedback is presented
 - [ ] 5.5 Run the full test suite and production build, then verify normal, advantage, disadvantage, automatic critical, and timeout flows in Owlbear Rodeo with Dice+
+
+## 6. Runtime Compatibility and Popover Stability
+
+- [x] 6.1 Normalize nested Owlbear broadcast envelopes and allow special Dice+ animations enough timeout/settle time
+- [x] 6.2 Preserve automatic critical damage for legacy DAMAGE steps with omitted `criticalBehavior`, and expose purpose/execution/critical behavior in the action editor
+- [x] 6.3 Classify a kept natural 1 as an automatic miss and skip hit/critical-dependent damage
+- [x] 6.4 Serialize toolbar synchronization, skip unchanged action sets, and test that stable ToolActions preserve popover anchors

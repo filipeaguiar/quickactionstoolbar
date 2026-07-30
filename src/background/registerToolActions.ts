@@ -1,7 +1,11 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { TOOL_ID } from "./registerTool";
 import { resolveIconUrl, resolveOverflowIconUrl } from "@/utils/iconResolver";
-import { openActionPopover, openOverflowPopover } from "./popoverManager";
+import {
+  ACTION_POPOVER_ID,
+  openActionPopover,
+  openOverflowPopover,
+} from "./popoverManager";
 
 export interface SimpleActionItem {
   id: string;
@@ -12,39 +16,64 @@ export interface SimpleActionItem {
   sortOrder: number;
 }
 
-// Armazena a lista de IDs de ToolActions registrados atualmente
 let registeredActionIds: string[] = [];
+let lastToolbarSignature: string | null = null;
+let syncQueue: Promise<void> = Promise.resolve();
 
-/**
- * Sincroniza a barra de ToolActions com a lista de ações visíveis do jogador.
- * @param actions Lista de ações ativas do perfil do jogador
- */
-export async function syncToolActions(actions: SimpleActionItem[]): Promise<void> {
-  // 1. Remover todos os ToolActions registrados anteriormente
+function visibleActions(actions: SimpleActionItem[]): SimpleActionItem[] {
+  return actions
+    .filter((action) => action.enabled)
+    .map((action) => ({ ...action }))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+}
+
+function toolbarSignature(actions: SimpleActionItem[]): string {
+  return JSON.stringify(
+    actions.map(({ id, name, shortLabel, icon, enabled, sortOrder }) => ({
+      id,
+      name,
+      shortLabel,
+      icon,
+      enabled,
+      sortOrder,
+    }))
+  );
+}
+
+async function performSync(actions: SimpleActionItem[]): Promise<void> {
+  const normalizedActions = visibleActions(actions);
+  const nextSignature = toolbarSignature(normalizedActions);
+
+  if (nextSignature === lastToolbarSignature) {
+    return;
+  }
+
+  if (registeredActionIds.length > 0) {
+    try {
+      await OBR.popover.close(ACTION_POPOVER_ID);
+    } catch {
+      // O popover pode não estar aberto.
+    }
+  }
+
   for (const registeredId of registeredActionIds) {
     try {
       await OBR.tool.removeAction(registeredId);
     } catch {
-      // Ignorar erros caso já tenha sido removido
+      // Ignorar erros caso a ação já tenha sido removida.
     }
   }
   registeredActionIds = [];
 
-  // 2. Filtrar e ordenar ações ativas por sortOrder
-  const visibleActions = actions
-    .filter((a) => a.enabled)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-
-  if (visibleActions.length === 0) {
+  if (normalizedActions.length === 0) {
+    lastToolbarSignature = nextSignature;
     return;
   }
 
-  // 3. Regra de Capacidade Visual de 8 Botões
   const MAX_DIRECT_ACTIONS = 8;
-  const hasOverflow = visibleActions.length > MAX_DIRECT_ACTIONS;
-  const directActions = hasOverflow ? visibleActions.slice(0, 7) : visibleActions;
+  const hasOverflow = normalizedActions.length > MAX_DIRECT_ACTIONS;
+  const directActions = hasOverflow ? normalizedActions.slice(0, 7) : normalizedActions;
 
-  // 4. Criar os ToolActions diretos
   for (const action of directActions) {
     const actionId = `${TOOL_ID}/action/${action.id}`;
     registeredActionIds.push(actionId);
@@ -66,7 +95,6 @@ export async function syncToolActions(actions: SimpleActionItem[]): Promise<void
     });
   }
 
-  // 5. Caso haja overflow (9 ou mais ações), registrar botão "Mais ações..."
   if (hasOverflow) {
     const overflowId = `${TOOL_ID}/action/overflow`;
     registeredActionIds.push(overflowId);
@@ -87,4 +115,19 @@ export async function syncToolActions(actions: SimpleActionItem[]): Promise<void
       },
     });
   }
+
+  lastToolbarSignature = nextSignature;
+}
+
+/**
+ * Sincroniza ToolActions em série e preserva os elementos nativos quando a
+ * configuração visual efetiva não mudou, mantendo popovers ancorados estáveis.
+ */
+export function syncToolActions(actions: SimpleActionItem[]): Promise<void> {
+  const snapshot = actions.map((action) => ({ ...action }));
+  syncQueue = syncQueue.then(
+    () => performSync(snapshot),
+    () => performSync(snapshot)
+  );
+  return syncQueue;
 }

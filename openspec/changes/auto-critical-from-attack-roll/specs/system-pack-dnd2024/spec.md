@@ -11,6 +11,10 @@ The system SHALL automatically double the number of dice for `DAMAGE` purpose st
 - **WHEN** the kept attack d20 has a value other than 20
 - **THEN** the damage expression SHALL retain its original dice counts
 
+#### Scenario: Legacy critical behavior omitted
+- **WHEN** the kept attack d20 is 20 and a damage step omits `criticalBehavior`
+- **THEN** the damage dice SHALL be doubled for backward compatibility
+
 #### Scenario: Critical behavior disabled
 - **WHEN** the kept attack d20 is 20 and a damage step has `criticalBehavior: "NONE"`
 - **THEN** the damage expression SHALL retain its original dice counts
@@ -36,6 +40,10 @@ The D&D 2024 System Pack SHALL classify an attack as critical only when the Dice
 - **WHEN** an attack result contains a d20 with value 20 and `kept: true`
 - **THEN** the attack is classified as critical even when another d20 was rolled
 
+#### Scenario: Natural 1 is kept
+- **WHEN** an attack result contains a d20 with value 1 and `kept: true`
+- **THEN** the attack is classified as an automatic miss
+
 ### Requirement: Conditional Step Execution
 The action executor SHALL preserve and enforce `ALWAYS`, `ON_HIT`, and `ON_CRITICAL` conditions using the most recent preceding attack result, and SHALL resolve damage only after that attack result is known.
 
@@ -50,6 +58,10 @@ The action executor SHALL preserve and enforce `ALWAYS`, `ON_HIT`, and `ON_CRITI
 #### Scenario: Hit-conditioned damage without armor class
 - **WHEN** an `ON_HIT` step follows a successfully completed attack roll and no armor class evaluation is available
 - **THEN** the step executes to preserve the existing behavior
+
+#### Scenario: Natural 1 attack precedes damage
+- **WHEN** an `ON_HIT` or `ON_CRITICAL` step follows an attack classified as an automatic miss
+- **THEN** the conditional step is skipped
 
 #### Scenario: Conditional step without preceding attack
 - **WHEN** an `ON_HIT` or `ON_CRITICAL` step has no preceding attack result

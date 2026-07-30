@@ -4,6 +4,8 @@ import { SystemPack } from "@/systems/types";
 
 interface AttackContext {
   isCritical: boolean;
+  isAutomaticMiss: boolean;
+  isHit: boolean;
 }
 
 export interface ExecuteActionOptions {
@@ -78,8 +80,8 @@ export async function executeAction({
 
   const remainingSteps = action.sequence.steps.filter((step) => step.id !== attackStep?.id);
   const runnableSteps = remainingSteps.filter((step) => {
-    if (step.execute === "ON_HIT") return !!attackContext;
-    if (step.execute === "ON_CRITICAL") return !!attackContext?.isCritical;
+    if (step.execute === "ON_HIT") return attackContext?.isHit === true;
+    if (step.execute === "ON_CRITICAL") return attackContext?.isCritical === true;
     return true;
   });
 

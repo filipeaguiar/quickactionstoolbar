@@ -5,8 +5,8 @@ export const DICE_PLUS_PROTOCOL = {
   errorChannel: "dice-plus/roll-error",
   source: "quick-actions-toolbar",
   timeoutMs: 1500,
-  stepTimeoutMs: 4000,
-  settleDelayMs: 1500,
+  stepTimeoutMs: 12000,
+  settleDelayMs: 2000,
 } as const;
 
 export interface DicePlusReadyRequest {

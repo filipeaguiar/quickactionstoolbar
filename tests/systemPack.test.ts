@@ -183,6 +183,33 @@ describe("D&D 2024 System Pack AST Transformations", () => {
       expect(result.isCritical).toBe(true);
     });
 
+    it("should classify a kept natural 1 as an automatic miss", () => {
+      const result = systemPack.classifyAttackResult(
+        attackResult([{ diceId: "d1", rollId: "roll-1", diceType: "d20", value: 1, kept: true }], 8)
+      );
+      expect(result.isAutomaticMiss).toBe(true);
+      expect(result.isHit).toBe(false);
+      expect(result.isCritical).toBe(false);
+    });
+
+    it("should double legacy damage when criticalBehavior is omitted", () => {
+      const legacyAction: ActionDefinition = {
+        ...mockAction,
+        sequence: {
+          ...mockAction.sequence,
+          steps: [
+            mockAction.sequence.steps[0],
+            {
+              ...mockAction.sequence.steps[1],
+              criticalBehavior: undefined,
+            },
+          ],
+        },
+      };
+      const result = systemPack.applyVariant(legacyAction, "NORMAL", variables, { isCritical: true });
+      expect(result.steps[1].resolvedExpression).toBe("2d8 + 4");
+    });
+
     it("should preserve damage when criticalBehavior is NONE", () => {
       const action: ActionDefinition = {
         ...mockAction,

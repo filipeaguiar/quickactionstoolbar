@@ -68,12 +68,16 @@ function deleteAction(index: number) {
 .action-list {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
   gap: 10px;
 }
 .action-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 .actions {
   list-style: none;
@@ -86,6 +90,8 @@ function deleteAction(index: number) {
 .action-item {
   display: flex;
   justify-content: space-between;
+  min-width: 0;
+  gap: 8px;
   background: #2a2a2a;
   padding: 8px 12px;
   border-radius: 4px;
@@ -94,7 +100,11 @@ function deleteAction(index: number) {
 .action-info {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 8px;
+}
+.action-info span {
+  overflow-wrap: anywhere;
 }
 .kind-tag {
   background: #444;
@@ -105,6 +115,7 @@ function deleteAction(index: number) {
 }
 .action-controls {
   display: flex;
+  flex: 0 0 auto;
   gap: 5px;
 }
 .btn-primary {

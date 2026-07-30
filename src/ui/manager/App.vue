@@ -134,12 +134,25 @@ onMounted(() => {
 
 <style scoped>
 .manager-container {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100vh;
+  min-width: 0;
+  overflow: hidden;
   font-family: sans-serif;
   background-color: #1e1e1e;
   color: #fff;
+}
+.manager-container :deep(*) {
+  box-sizing: border-box;
+}
+.manager-container :deep(input),
+.manager-container :deep(select),
+.manager-container :deep(textarea) {
+  max-width: 100%;
+  min-width: 0;
 }
 .header {
   padding: 10px;
@@ -161,11 +174,19 @@ onMounted(() => {
 }
 .main-content {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 10px;
 }
+.tab-content {
+  min-width: 0;
+  max-width: 100%;
+}
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
   margin-top: 10px;
   margin-bottom: 10px;
@@ -183,6 +204,8 @@ onMounted(() => {
   color: white;
 }
 .footer {
+  flex: 0 0 auto;
+  min-width: 0;
   padding: 10px;
   background-color: #2c2c2c;
   border-top: 1px solid #444;

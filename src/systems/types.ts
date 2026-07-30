@@ -32,6 +32,8 @@ export interface ValidationResult {
 
 export interface AttackClassification {
   isCritical: boolean;
+  isAutomaticMiss: boolean;
+  isHit: boolean;
 }
 
 export interface RuntimeResolutionOptions {

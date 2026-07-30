@@ -17,3 +17,21 @@ The action popover SHALL keep the execution context open long enough to report a
 #### Scenario: Dice+ result times out
 - **WHEN** an attack or damage roll does not return a correlated result before timeout
 - **THEN** the player receives visible failure feedback and remaining conditional steps are not silently treated as successful
+
+### Requirement: Stable Anchored Action Popover
+The extension SHALL preserve registered ToolAction elements when the effective visible action set has not changed, so room metadata and player events do not invalidate the open popover anchor.
+
+#### Scenario: Unrelated room metadata changes while variants are open
+- **WHEN** room metadata changes without changing the effective visible ToolActions
+- **THEN** the extension does not remove or recreate those ToolActions and the action popover remains anchored
+
+#### Scenario: Concurrent toolbar refresh events occur
+- **WHEN** room and player events request toolbar synchronization concurrently
+- **THEN** synchronization is serialized and duplicate ToolAction rebuilds are avoided
+
+### Requirement: Critical Behavior Editing
+The action editor SHALL allow each roll step to configure purpose, execution condition, and damage critical behavior, and SHALL default an eligible DAMAGE step without an explicit critical behavior to automatic dice doubling.
+
+#### Scenario: Configuring an attack damage step
+- **WHEN** a user marks a step as DAMAGE and saves it without disabling critical behavior
+- **THEN** the step is stored with `criticalBehavior: "DOUBLE_DICE"`

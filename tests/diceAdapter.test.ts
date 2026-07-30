@@ -296,10 +296,10 @@ describe("DicePlusAdapter", () => {
       timestamp: Date.now(),
     });
 
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(13000);
     const result = await promise;
     expect(result.success).toBe(false);
     expect(result.error).toContain("Timeout aguardando resultado");
     expect(result.stepResults[0].error).toContain("Timeout aguardando resultado");
-  }, 10000);
+  }, 15000);
 });

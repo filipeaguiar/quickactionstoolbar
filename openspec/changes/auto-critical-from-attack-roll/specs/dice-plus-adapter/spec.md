@@ -14,7 +14,7 @@ The system SHALL dispatch each eligible `ResolvedRollStep` as a Dice+ roll reque
 ## ADDED Requirements
 
 ### Requirement: Structured Dice+ Roll Result Reception
-The adapter SHALL subscribe to `dice-plus/roll-result` and `dice-plus/roll-error`, correlate responses by `rollId`, and return typed result data including each group's dice type and each die's natural value and kept status.
+The adapter SHALL subscribe to `dice-plus/roll-result` and `dice-plus/roll-error`, normalize direct and Owlbear-nested broadcast envelopes, correlate responses by `rollId`, and return typed result data including each group's dice type and each die's natural value and kept status.
 
 #### Scenario: Matching result is received
 - **WHEN** `dice-plus/roll-result` contains the pending `rollId`
@@ -27,3 +27,11 @@ The adapter SHALL subscribe to `dice-plus/roll-result` and `dice-plus/roll-error
 #### Scenario: Matching error is received
 - **WHEN** `dice-plus/roll-error` contains the pending `rollId`
 - **THEN** the adapter unsubscribes its listeners and returns a failed step result
+
+#### Scenario: Owlbear wraps the result payload
+- **WHEN** a broadcast callback contains the Dice+ payload in a nested `data` envelope with connection metadata
+- **THEN** the adapter extracts the inner payload before correlating its `rollId`
+
+#### Scenario: Special-roll animation delays publication
+- **WHEN** Dice+ plays a natural 1 or natural 20 animation before publishing the correlated result
+- **THEN** the step timeout allows the documented animation window before reporting failure
