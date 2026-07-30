@@ -83,17 +83,12 @@ describe("Definition of Done (DoD) End-to-End Validation", () => {
     const pack = new DnD2024SystemPack();
     const resolved = pack.applyVariant(sampleProfile.actions[0], "NORMAL", sampleProfile.variables);
 
-    const expressionsStr = resolved.steps
-      .map((step) => step.resolvedExpression.replace(/\s+/g, ""))
-      .join(" + ");
+    const stepNotations = resolved.steps.map(
+      (s) => `${s.resolvedExpression.replace(/\s+/g, "")} # ${resolved.actionName} - ${s.label}`
+    );
 
-    const cleanActionName = resolved.actionName.replace(/[+\-*/]/g, " ");
-    const cleanStepLabels = resolved.steps
-      .map((s) => s.label.replace(/[+\-*/]/g, " "))
-      .join(", ");
-    const combinedNotation = `${expressionsStr} # ${cleanActionName} (${cleanStepLabels})`;
-
-    expect(combinedNotation).toBe("1d20+4+3 + 2d6+4 # Greatsword Attack (Attack, Damage)");
+    expect(stepNotations[0]).toBe("1d20+4+3 # Greatsword Attack - Attack");
+    expect(stepNotations[1]).toBe("2d6+4 # Greatsword Attack - Damage");
     expect(DICE_PLUS_PROTOCOL.readyChannel).toBe("dice-plus/isReady");
     expect(DICE_PLUS_PROTOCOL.rollChannel).toBe("dice-plus/roll-request");
   });

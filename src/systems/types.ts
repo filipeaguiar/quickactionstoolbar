@@ -7,17 +7,19 @@ export interface ActionVariant {
   icon?: string;
 }
 
+export interface ResolvedRollStep {
+  id: string;
+  label: string;
+  purpose: StepPurpose;
+  rawExpression: string;
+  resolvedExpression: string;
+  visibility: "PUBLIC" | "PRIVATE";
+}
+
 export interface ResolvedRollSequence {
   actionName: string;
   variantId: string;
-  steps: Array<{
-    id: string;
-    label: string;
-    purpose: StepPurpose;
-    rawExpression: string;
-    resolvedExpression: string;
-    visibility: "PUBLIC" | "PRIVATE";
-  }>;
+  steps: ResolvedRollStep[];
 }
 
 export interface ValidationResult {

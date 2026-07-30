@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { ResolvedRollSequence } from "../../systems/types";
+import { ResolvedRollSequence, ResolvedRollStep } from "../../systems/types";
 import {
   DICE_PLUS_PROTOCOL,
   DicePlusReadyResponse,
@@ -59,6 +59,84 @@ export class DicePlusAdapter implements DiceAdapter {
     });
   }
 
+  /**
+   * Executa a rolagem de um único passo da sequência de forma assíncrona,
+   * aguardando o fim da animação/resultado enviado pelo Dice+.
+   */
+  private async rollStep(
+    actionName: string,
+    step: ResolvedRollStep,
+    playerId: string,
+    playerName: string
+  ): Promise<boolean> {
+    const stepRollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const cleanAction = actionName.replace(/[+\-*/]/g, " ");
+    const cleanLabel = step.label.replace(/[+\-*/]/g, " ");
+    const cleanExpression = step.resolvedExpression.replace(/\s+/g, "");
+
+    const diceNotation = `${cleanExpression} # ${cleanAction} - ${cleanLabel}`;
+
+    const requestPayload: DicePlusRollRequestPayload = {
+      rollId: stepRollId,
+      playerId,
+      playerName,
+      rollTarget: "everyone",
+      diceNotation,
+      showResults: true,
+      timestamp: Date.now(),
+      source: DICE_PLUS_PROTOCOL.source,
+    };
+
+    return new Promise((resolve) => {
+      let finished = false;
+
+      const unsubResult = OBR.broadcast.onMessage(
+        `${DICE_PLUS_PROTOCOL.source}/roll-result`,
+        (event) => {
+          const data = event.data as any;
+          if (data && data.rollId === stepRollId) {
+            cleanup();
+            resolve(true);
+          }
+        }
+      );
+
+      const unsubError = OBR.broadcast.onMessage(
+        `${DICE_PLUS_PROTOCOL.source}/roll-error`,
+        (event) => {
+          const data = event.data as any;
+          if (data && data.rollId === stepRollId) {
+            cleanup();
+            resolve(false);
+          }
+        }
+      );
+
+      function cleanup() {
+        if (!finished) {
+          finished = true;
+          unsubResult();
+          unsubError();
+        }
+      }
+
+      // Enviar solicitação para o Dice+
+      OBR.broadcast.sendMessage(
+        DICE_PLUS_PROTOCOL.rollChannel,
+        requestPayload,
+        { destination: "ALL" }
+      );
+
+      // Timeout de segurança de 4 segundos caso o Dice+ não notifique a conclusão
+      setTimeout(() => {
+        if (!finished) {
+          cleanup();
+          resolve(true);
+        }
+      }, 4000);
+    });
+  }
+
   async roll(sequence: ResolvedRollSequence): Promise<RollDispatchResult> {
     const available = await this.isAvailable();
     if (!available) {
@@ -77,38 +155,16 @@ export class DicePlusAdapter implements DiceAdapter {
     const playerId = OBR.player.id;
     const playerName = await OBR.player.getName();
 
-    // No protocolo do Dice+, o texto após '#' encerra o bloco caso encontre operadores matemáticos (+, -, *, /).
-    // Portanto, juntamos as expressões com '+' antes do '#' e removemos operadores matemáticos do texto da descrição.
-    const expressionsStr = sequence.steps
-      .map((step) => step.resolvedExpression.replace(/\s+/g, ""))
-      .join(" + ");
+    // Executa cada passo da sequência de forma enfileirada e sequencial
+    for (let i = 0; i < sequence.steps.length; i++) {
+      const step = sequence.steps[i];
+      await this.rollStep(sequence.actionName, step, playerId, playerName);
 
-    const cleanActionName = sequence.actionName.replace(/[+\-*/]/g, " ");
-    const cleanStepLabels = sequence.steps
-      .map((s) => s.label.replace(/[+\-*/]/g, " "))
-      .join(", ");
-
-    const combinedNotation = cleanStepLabels
-      ? `${expressionsStr} # ${cleanActionName} (${cleanStepLabels})`
-      : `${expressionsStr} # ${cleanActionName}`;
-
-    const requestPayload: DicePlusRollRequestPayload = {
-      rollId: transactionId,
-      playerId,
-      playerName,
-      rollTarget: "everyone",
-      diceNotation: combinedNotation,
-      showResults: true,
-      timestamp: Date.now(),
-      source: DICE_PLUS_PROTOCOL.source,
-    };
-
-    // OBRIGATÓRIO: { destination: "ALL" } para transitar a mensagem entre iFrames de extensões no Owlbear Rodeo
-    await OBR.broadcast.sendMessage(
-      DICE_PLUS_PROTOCOL.rollChannel,
-      requestPayload,
-      { destination: "ALL" }
-    );
+      // Intervalo de 500ms entre passos para fluidez na animação do Dice+
+      if (i < sequence.steps.length - 1) {
+        await new Promise((res) => setTimeout(res, 500));
+      }
+    }
 
     return {
       success: true,
