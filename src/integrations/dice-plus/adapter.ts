@@ -77,11 +77,16 @@ export class DicePlusAdapter implements DiceAdapter {
     const playerId = OBR.player.id;
     const playerName = await OBR.player.getName();
 
-    // Formata cada passo sem espaços internos nos operadores de math para a notação do Dice+
-    // Exemplo: "1d20+4+3 # Ataque + 1d12+4 # Dano"
-    const combinedNotation = sequence.steps
-      .map((step) => `${step.resolvedExpression.replace(/\s+/g, "")} # ${step.label}`)
+    // No protocolo do Dice+, expressões complexas combinam a matemática primeiro e a descrição (#) no final:
+    // Exemplo: "1d20+4+2 + 1d12+4 # Ataque com Machado Grande (Ataque + Dano)"
+    const expressionsStr = sequence.steps
+      .map((step) => step.resolvedExpression.replace(/\s+/g, ""))
       .join(" + ");
+
+    const stepLabels = sequence.steps.map((s) => s.label).join(" + ");
+    const combinedNotation = stepLabels
+      ? `${expressionsStr} # ${sequence.actionName} (${stepLabels})`
+      : `${expressionsStr} # ${sequence.actionName}`;
 
     const requestPayload: DicePlusRollRequestPayload = {
       rollId: transactionId,
