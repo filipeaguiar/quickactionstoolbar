@@ -2,8 +2,8 @@ import OBR from "@owlbear-rodeo/sdk";
 import { ResolvedRollSequence } from "../../systems/types";
 import {
   DICE_PLUS_PROTOCOL,
-  DicePlusHandshakeResponse,
-  DicePlusRollRequest,
+  DicePlusReadyResponse,
+  DicePlusRollRequestPayload,
 } from "./protocol";
 
 export interface RollDispatchResult {
@@ -22,14 +22,16 @@ export class DicePlusAdapter implements DiceAdapter {
   id = "dice-plus";
 
   async isAvailable(): Promise<boolean> {
+    const requestId = crypto.randomUUID();
+
     return new Promise((resolve) => {
       let responded = false;
 
       const unsubscribe = OBR.broadcast.onMessage(
-        DICE_PLUS_PROTOCOL.channel,
+        DICE_PLUS_PROTOCOL.readyChannel,
         (event) => {
-          const payload = event.data as DicePlusHandshakeResponse;
-          if (payload && payload.type === "PONG" && payload.status === "READY") {
+          const data = event.data as DicePlusReadyResponse;
+          if (data && data.ready && data.requestId === requestId) {
             responded = true;
             unsubscribe();
             resolve(true);
@@ -37,13 +39,13 @@ export class DicePlusAdapter implements DiceAdapter {
         }
       );
 
-      // Enviar mensagem de handshake PING
-      OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.channel, {
-        version: 1,
-        type: "PING",
+      // Enviar mensagem no canal dice-plus/isReady
+      OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.readyChannel, {
+        requestId,
+        timestamp: Date.now(),
       });
 
-      // Timeout caso o Dice+ não esteja instalado/habilitado
+      // Timeout caso o Dice+ não esteja presente
       setTimeout(() => {
         if (!responded) {
           unsubscribe();
@@ -67,21 +69,28 @@ export class DicePlusAdapter implements DiceAdapter {
       };
     }
 
-    const transactionId = crypto.randomUUID();
+    const transactionId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const playerId = OBR.player.id;
+    const playerName = await OBR.player.getName();
 
-    const requestPayload: DicePlusRollRequest = {
-      version: 1,
-      transactionId,
-      senderId: playerId,
-      rolls: sequence.steps.map((step) => ({
-        label: `${sequence.actionName} - ${step.label}`,
-        expression: step.resolvedExpression,
-        visibility: step.visibility,
-      })),
+    // Combina todas as rolagens dos passos em notação válida do Dice+
+    // Exemplo: "1d20+7 # Ataque + 2d6+4 # Dano"
+    const combinedNotation = sequence.steps
+      .map((step) => `${step.resolvedExpression} # ${step.label}`)
+      .join(" + ");
+
+    const requestPayload: DicePlusRollRequestPayload = {
+      rollId: transactionId,
+      playerId,
+      playerName,
+      rollTarget: "everyone",
+      diceNotation: combinedNotation,
+      showResults: true,
+      timestamp: Date.now(),
+      source: DICE_PLUS_PROTOCOL.source,
     };
 
-    await OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.channel, requestPayload);
+    await OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.rollChannel, requestPayload);
 
     return {
       success: true,

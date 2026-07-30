@@ -1,27 +1,28 @@
 export const DICE_PLUS_PROTOCOL = {
-  channel: "com.owlbear-rodeo.dice-plus/broadcast",
-  version: 1,
-  timeoutMs: 3000,
+  readyChannel: "dice-plus/isReady",
+  rollChannel: "dice-plus/roll-request",
+  source: "quick-actions-toolbar",
+  timeoutMs: 1500,
 } as const;
 
-export interface DicePlusRollRequest {
-  version: 1;
-  transactionId: string;
-  senderId: string;
-  rolls: Array<{
-    label: string;
-    expression: string;
-    visibility: "PUBLIC" | "PRIVATE";
-  }>;
+export interface DicePlusReadyRequest {
+  requestId: string;
+  timestamp: number;
 }
 
-export interface DicePlusHandshakeRequest {
-  version: 1;
-  type: "PING";
+export interface DicePlusReadyResponse {
+  requestId: string;
+  ready: boolean;
+  timestamp: number;
 }
 
-export interface DicePlusHandshakeResponse {
-  version: 1;
-  type: "PONG";
-  status: "READY";
+export interface DicePlusRollRequestPayload {
+  rollId: string;
+  playerId: string;
+  playerName: string;
+  rollTarget: "everyone" | "self" | "dm" | "gm_only";
+  diceNotation: string;
+  showResults: boolean;
+  timestamp: number;
+  source: string;
 }

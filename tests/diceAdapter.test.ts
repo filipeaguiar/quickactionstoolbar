@@ -19,6 +19,7 @@ vi.mock("@owlbear-rodeo/sdk", () => {
       },
       player: {
         id: "player-123",
+        getName: vi.fn().mockResolvedValue("Player One"),
       },
     },
   };
@@ -32,12 +33,16 @@ describe("DicePlusAdapter", () => {
     adapter = new DicePlusAdapter();
   });
 
-  it("should return true for isAvailable when PONG is received", async () => {
+  it("should return true for isAvailable when ready response is received", async () => {
     vi.mocked(OBR.broadcast.onMessage).mockImplementation((channel, callback) => {
-      // Immediately simulate PONG response
       setTimeout(() => {
+        // Find requestId sent
+        const calls = vi.mocked(OBR.broadcast.sendMessage).mock.calls;
+        const lastCall = calls[calls.length - 1];
+        const requestId = lastCall ? (lastCall[1] as any).requestId : "test-id";
+
         callback({
-          data: { version: 1, type: "PONG", status: "READY" },
+          data: { requestId, ready: true, timestamp: Date.now() },
         } as any);
       }, 10);
       return () => {};
@@ -46,21 +51,18 @@ describe("DicePlusAdapter", () => {
     const available = await adapter.isAvailable();
     expect(available).toBe(true);
     expect(OBR.broadcast.sendMessage).toHaveBeenCalledWith(
-      "com.owlbear-rodeo.dice-plus/broadcast",
-      { version: 1, type: "PING" }
+      "dice-plus/isReady",
+      expect.objectContaining({ requestId: expect.any(String) })
     );
   });
 
-  it("should return false for isAvailable when timeout expires without PONG", async () => {
-    vi.mocked(OBR.broadcast.onMessage).mockImplementation(() => {
-      return () => {};
-    });
+  it("should return false for isAvailable when timeout expires without ready response", async () => {
+    vi.mocked(OBR.broadcast.onMessage).mockImplementation(() => () => {});
 
-    // We can use fake timers or test short timeout if needed, but here let's test timeout
     vi.useFakeTimers();
     const isAvailablePromise = adapter.isAvailable();
 
-    vi.advanceTimersByTime(3500);
+    vi.advanceTimersByTime(2000);
 
     const available = await isAvailablePromise;
     expect(available).toBe(false);
@@ -77,7 +79,7 @@ describe("DicePlusAdapter", () => {
       steps: [],
     });
 
-    vi.advanceTimersByTime(3500);
+    vi.advanceTimersByTime(2000);
     const result = await rollPromise;
 
     expect(result.success).toBe(false);
@@ -89,11 +91,15 @@ describe("DicePlusAdapter", () => {
     vi.useRealTimers();
   });
 
-  it("should dispatch roll payload if Dice+ is available", async () => {
+  it("should dispatch roll payload to dice-plus/roll-request if Dice+ is available", async () => {
     vi.mocked(OBR.broadcast.onMessage).mockImplementation((channel, callback) => {
       setTimeout(() => {
+        const calls = vi.mocked(OBR.broadcast.sendMessage).mock.calls;
+        const lastCall = calls[calls.length - 1];
+        const requestId = lastCall ? (lastCall[1] as any).requestId : "test-id";
+
         callback({
-          data: { version: 1, type: "PONG", status: "READY" },
+          data: { requestId, ready: true, timestamp: Date.now() },
         } as any);
       }, 5);
       return () => {};
@@ -119,17 +125,12 @@ describe("DicePlusAdapter", () => {
     expect(result.transactionId).toBeDefined();
 
     expect(OBR.broadcast.sendMessage).toHaveBeenLastCalledWith(
-      "com.owlbear-rodeo.dice-plus/broadcast",
+      "dice-plus/roll-request",
       expect.objectContaining({
-        version: 1,
-        senderId: "player-123",
-        rolls: [
-          {
-            label: "Fireball - Damage",
-            expression: "8d6",
-            visibility: "PUBLIC",
-          },
-        ],
+        playerId: "player-123",
+        playerName: "Player One",
+        diceNotation: "8d6 # Damage",
+        source: "quick-actions-toolbar",
       })
     );
   });

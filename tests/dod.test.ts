@@ -83,19 +83,12 @@ describe("Definition of Done (DoD) End-to-End Validation", () => {
     const pack = new DnD2024SystemPack();
     const resolved = pack.applyVariant(sampleProfile.actions[0], "NORMAL", sampleProfile.variables);
 
-    const payload: DicePlusRollRequest = {
-      version: 1,
-      transactionId: "tx-123",
-      senderId: "player-1",
-      rolls: resolved.steps.map((s) => ({
-        label: `${resolved.actionName} - ${s.label}`,
-        expression: s.resolvedExpression,
-        visibility: s.visibility,
-      })),
-    };
+    const combinedNotation = resolved.steps
+      .map((s) => `${s.resolvedExpression} # ${s.label}`)
+      .join(" + ");
 
-    expect(payload.version).toBe(DICE_PLUS_PROTOCOL.version);
-    expect(payload.rolls[0].expression).toBe("1d20 + 4 + 3");
-    expect(payload.rolls[1].expression).toBe("2d6 + 4");
+    expect(combinedNotation).toBe("1d20 + 4 + 3 # Attack + 2d6 + 4 # Damage");
+    expect(DICE_PLUS_PROTOCOL.readyChannel).toBe("dice-plus/isReady");
+    expect(DICE_PLUS_PROTOCOL.rollChannel).toBe("dice-plus/roll-request");
   });
 });
