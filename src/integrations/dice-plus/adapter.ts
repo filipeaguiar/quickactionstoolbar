@@ -77,16 +77,20 @@ export class DicePlusAdapter implements DiceAdapter {
     const playerId = OBR.player.id;
     const playerName = await OBR.player.getName();
 
-    // No protocolo do Dice+, expressões complexas combinam a matemática primeiro e a descrição (#) no final:
-    // Exemplo: "1d20+4+2 + 1d12+4 # Ataque com Machado Grande (Ataque + Dano)"
+    // No protocolo do Dice+, o texto após '#' encerra o bloco caso encontre operadores matemáticos (+, -, *, /).
+    // Portanto, juntamos as expressões com '+' antes do '#' e removemos operadores matemáticos do texto da descrição.
     const expressionsStr = sequence.steps
       .map((step) => step.resolvedExpression.replace(/\s+/g, ""))
       .join(" + ");
 
-    const stepLabels = sequence.steps.map((s) => s.label).join(" + ");
-    const combinedNotation = stepLabels
-      ? `${expressionsStr} # ${sequence.actionName} (${stepLabels})`
-      : `${expressionsStr} # ${sequence.actionName}`;
+    const cleanActionName = sequence.actionName.replace(/[+\-*/]/g, " ");
+    const cleanStepLabels = sequence.steps
+      .map((s) => s.label.replace(/[+\-*/]/g, " "))
+      .join(", ");
+
+    const combinedNotation = cleanStepLabels
+      ? `${expressionsStr} # ${cleanActionName} (${cleanStepLabels})`
+      : `${expressionsStr} # ${cleanActionName}`;
 
     const requestPayload: DicePlusRollRequestPayload = {
       rollId: transactionId,

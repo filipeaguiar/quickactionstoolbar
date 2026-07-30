@@ -87,10 +87,13 @@ describe("Definition of Done (DoD) End-to-End Validation", () => {
       .map((step) => step.resolvedExpression.replace(/\s+/g, ""))
       .join(" + ");
 
-    const stepLabels = resolved.steps.map((s) => s.label).join(" + ");
-    const combinedNotation = `${expressionsStr} # ${resolved.actionName} (${stepLabels})`;
+    const cleanActionName = resolved.actionName.replace(/[+\-*/]/g, " ");
+    const cleanStepLabels = resolved.steps
+      .map((s) => s.label.replace(/[+\-*/]/g, " "))
+      .join(", ");
+    const combinedNotation = `${expressionsStr} # ${cleanActionName} (${cleanStepLabels})`;
 
-    expect(combinedNotation).toBe("1d20+4+3 + 2d6+4 # Greatsword Attack (Attack + Damage)");
+    expect(combinedNotation).toBe("1d20+4+3 + 2d6+4 # Greatsword Attack (Attack, Damage)");
     expect(DICE_PLUS_PROTOCOL.readyChannel).toBe("dice-plus/isReady");
     expect(DICE_PLUS_PROTOCOL.rollChannel).toBe("dice-plus/roll-request");
   });
