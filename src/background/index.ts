@@ -11,7 +11,16 @@ async function updatePlayerBarFromRoomMetadata() {
   const roomData = await getOrCreateRoomData();
   const currentUserId = OBR.player.id;
 
-  const profileId = roomData.playerAssignments[currentUserId] || Object.keys(roomData.profiles)[0];
+  // 1. Buscar o perfil especificamente atribuído a ESTE jogador
+  let profileId = roomData.playerAssignments[currentUserId];
+
+  // 2. Se for GM e não tiver atribuição direta, exibe o primeiro perfil para testes
+  const role = await OBR.player.getRole();
+  if (!profileId && role === "GM") {
+    profileId = Object.keys(roomData.profiles)[0];
+  }
+
+  // 3. Sincronizar as ações do perfil atribuído ao jogador
   if (profileId && roomData.profiles[profileId]) {
     const profile = roomData.profiles[profileId];
 
@@ -28,6 +37,9 @@ async function updatePlayerBarFromRoomMetadata() {
       return;
     }
   }
+
+  // Se o jogador não tiver nenhum perfil atribuído, exibe a barra limpa
+  await syncToolActions([]);
 }
 
 OBR.onReady(async () => {
