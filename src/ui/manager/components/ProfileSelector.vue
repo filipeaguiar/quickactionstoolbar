@@ -8,7 +8,7 @@
           {{ p.name }}
         </option>
       </select>
-      <button v-if="isGm" @click="createProfile" class="btn-small">+</button>
+      <button v-if="isGm || profilesList.length === 0" @click="createProfile" class="btn-small">+ Novo Perfil</button>
     </div>
     
     <div class="field" v-if="isGm && selectedProfile">

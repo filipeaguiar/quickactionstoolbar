@@ -2,7 +2,7 @@
   <div class="popover-panel">
     <header class="popover-header">
       <span class="action-icon">⚔️</span>
-      <h3 class="action-title">{{ actionName }}</h3>
+      <h3 class="action-title">{{ action?.name || actionName }}</h3>
     </header>
 
     <div class="variant-list">
@@ -33,19 +33,106 @@
 import { ref, onMounted } from "vue";
 import OBR from "@owlbear-rodeo/sdk";
 import { ACTION_POPOVER_ID } from "@/background/popoverManager";
+import { getRoomData } from "@/storage/roomProfileRepository";
+import { DnD2024SystemPack } from "@/systems/dnd2024";
+import { DicePlusAdapter } from "@/integrations/dice-plus/adapter";
+import { ActionDefinition } from "@/types/action";
 
 const actionName = ref("Ação do Personagem");
+const action = ref<ActionDefinition | null>(null);
+const variables = ref<Record<string, number>>({});
 
-onMounted(() => {
+const systemPack = new DnD2024SystemPack();
+const diceAdapter = new DicePlusAdapter();
+
+onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const actionId = urlParams.get("actionId");
   if (actionId) {
     actionName.value = actionId.replace(/-/g, " ");
   }
+
+  try {
+    if (!OBR.isReady) {
+      await new Promise<void>((resolve) => OBR.onReady(() => resolve()));
+    }
+    const roomData = await getRoomData();
+    const playerId = OBR.player.id;
+    if (roomData) {
+      const profileId = roomData.playerAssignments[playerId] || Object.keys(roomData.profiles)[0];
+
+      if (profileId && roomData.profiles[profileId]) {
+        const currentProfile = roomData.profiles[profileId];
+        variables.value = currentProfile.variables || {};
+        const foundAction = currentProfile.actions.find((a) => a.id === actionId);
+        if (foundAction) {
+          action.value = foundAction;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao carregar dados no popover:", err);
+  }
 });
 
 async function selectVariant(variant: string) {
   console.log(`Variante selecionada: ${variant}`);
+  
+  if (action.value) {
+    try {
+      const resolvedSequence = systemPack.applyVariant(action.value, variant, variables.value);
+      console.log("Sequência resolvida:", resolvedSequence);
+      const result = await diceAdapter.roll(resolvedSequence);
+      console.log("Resultado envio Dice+:", result);
+    } catch (err) {
+      console.error("Erro ao executar rolagem:", err);
+    }
+  } else {
+    // Mock fallback se a ação específica não estiver no perfil
+    const mockAction: ActionDefinition = {
+      id: "fallback-action",
+      name: actionName.value,
+      icon: "sword",
+      kind: "ATTACK",
+      enabled: true,
+      sortOrder: 0,
+      systemId: "dnd5e-2024",
+      tags: [],
+      variantPolicy: {
+        allowNormal: true,
+        allowAdvantage: true,
+        allowDisadvantage: true,
+        allowCritical: true,
+        customVariants: [],
+      },
+      sequence: {
+        version: 1,
+        stopOnError: true,
+        steps: [
+          {
+            id: "step-1",
+            label: "Ataque",
+            purpose: "ATTACK",
+            expression: "1d20 + 5",
+            visibility: "PUBLIC",
+            execute: "ALWAYS",
+          },
+          {
+            id: "step-2",
+            label: "Dano",
+            purpose: "DAMAGE",
+            expression: "1d8 + 3",
+            visibility: "PUBLIC",
+            execute: "ON_HIT",
+            criticalBehavior: "DOUBLE_DICE",
+          },
+        ],
+      },
+    };
+    const resolvedSequence = systemPack.applyVariant(mockAction, variant, variables.value);
+    await diceAdapter.roll(resolvedSequence);
+  }
+
   try {
     await OBR.popover.close(ACTION_POPOVER_ID);
   } catch (err) {

@@ -89,8 +89,10 @@ async function loadData() {
   currentUserId.value = OBR.player.id;
   roomData.value = await getRoomData();
 
-  if (roomData.value && roomData.value.playerAssignments[currentUserId.value]) {
-    selectedProfileId.value = roomData.value.playerAssignments[currentUserId.value];
+  if (roomData.value) {
+    const assigned = roomData.value.playerAssignments[currentUserId.value];
+    const firstProfileId = Object.keys(roomData.value.profiles)[0];
+    selectedProfileId.value = assigned || firstProfileId || null;
   }
 }
 
