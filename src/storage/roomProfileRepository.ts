@@ -197,9 +197,12 @@ export async function saveRoomData(
     nextRoomData.updatedAt = new Date().toISOString();
     nextRoomData.updatedBy = currentUserId;
 
+    // Limpa objetos Proxy do Vue 3 para permitir clonagem pelo postMessage do OBR SDK
+    const cleanRoomData = JSON.parse(JSON.stringify(nextRoomData));
+
     // 4. Executar a gravação parcial no metadata da sala
     await OBR.room.setMetadata({
-      [ROOM_DATA_KEY]: nextRoomData,
+      [ROOM_DATA_KEY]: cleanRoomData,
     });
 
     return { success: true, metrics };
