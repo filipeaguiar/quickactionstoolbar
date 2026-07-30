@@ -6,6 +6,7 @@ export const DICE_PLUS_PROTOCOL = {
   source: "quick-actions-toolbar",
   timeoutMs: 1500,
   stepTimeoutMs: 4000,
+  settleDelayMs: 1500,
 } as const;
 
 export interface DicePlusReadyRequest {

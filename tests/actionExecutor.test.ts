@@ -86,7 +86,13 @@ describe("executeAction", () => {
       roll: vi
         .fn()
         .mockResolvedValueOnce(successResult(attackResult(19)))
-        .mockResolvedValueOnce(successResult()) as any,
+        .mockResolvedValueOnce({
+          success: true,
+          transactionId: "tx-2",
+          stepResults: [
+            { success: true, rollId: "roll-damage", result: attackResult(8) },
+          ],
+        }) as any,
     };
 
     const result = await executeAction({
@@ -100,6 +106,7 @@ describe("executeAction", () => {
     expect(result.success).toBe(true);
     expect(result.completedStepIds).toEqual(["attack", "damage"]);
     expect(result.skippedStepIds).toEqual(["crit-bonus"]);
+    expect(vi.mocked(diceAdapter.roll).mock.calls[1][0].steps).toHaveLength(1);
     expect(vi.mocked(diceAdapter.roll).mock.calls[1][0].steps[0].resolvedExpression).toBe("1d8 + 4");
   });
 
@@ -110,8 +117,14 @@ describe("executeAction", () => {
       roll: vi
         .fn()
         .mockResolvedValueOnce(successResult(attackResult(20)))
-        .mockResolvedValueOnce(successResult())
-        .mockResolvedValueOnce(successResult()) as any,
+        .mockResolvedValueOnce({
+          success: true,
+          transactionId: "tx-2",
+          stepResults: [
+            { success: true, rollId: "roll-damage", result: attackResult(8) },
+            { success: true, rollId: "roll-crit", result: attackResult(6) },
+          ],
+        }) as any,
     };
 
     const result = await executeAction({
@@ -124,6 +137,7 @@ describe("executeAction", () => {
 
     expect(result.success).toBe(true);
     expect(result.completedStepIds).toEqual(["attack", "damage", "crit-bonus"]);
+    expect(vi.mocked(diceAdapter.roll).mock.calls[1][0].steps).toHaveLength(2);
     expect(vi.mocked(diceAdapter.roll).mock.calls[1][0].steps[0].resolvedExpression).toBe("2d8 + 4");
   });
 

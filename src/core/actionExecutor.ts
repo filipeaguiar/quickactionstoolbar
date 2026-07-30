@@ -40,56 +40,92 @@ export async function executeAction({
     };
   }
 
-  let attackContext: AttackContext | null = null;
   const completedStepIds: string[] = [];
   const skippedStepIds: string[] = [];
   const transactionId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-  for (const step of action.sequence.steps) {
-    if (step.execute === "ON_HIT" && !attackContext) {
-      skippedStepIds.push(step.id);
-      continue;
-    }
+  const attackStep = action.sequence.steps.find((step) => step.purpose === "ATTACK");
+  let attackContext: AttackContext | null = null;
 
-    if (step.execute === "ON_CRITICAL" && !attackContext?.isCritical) {
-      skippedStepIds.push(step.id);
-      continue;
-    }
+  if (attackStep) {
+    const attackSequence = systemPack.applyVariant(action, variantId, variables, { isCritical: false });
+    const resolvedAttackStep = attackSequence.steps.find((step) => step.id === attackStep.id);
 
-    const resolvedSequence = systemPack.applyVariant(action, variantId, variables, {
-      isCritical: step.purpose === "DAMAGE" ? attackContext?.isCritical : false,
-    });
-    const resolvedStep = resolvedSequence.steps.find((candidate) => candidate.id === step.id);
-    if (!resolvedStep) {
-      skippedStepIds.push(step.id);
-      continue;
-    }
+    if (resolvedAttackStep) {
+      const attackResult = await diceAdapter.roll({
+        actionName: attackSequence.actionName,
+        variantId: attackSequence.variantId,
+        steps: [resolvedAttackStep],
+      });
 
-    const rollResult = await diceAdapter.roll({
-      actionName: resolvedSequence.actionName,
-      variantId: resolvedSequence.variantId,
-      steps: [resolvedStep],
-    });
+      if (!attackResult.success) {
+        return {
+          success: false,
+          transactionId: attackResult.transactionId || transactionId,
+          error: attackResult.error,
+          completedStepIds,
+          skippedStepIds,
+        };
+      }
 
-    if (!rollResult.success) {
-      return {
-        success: false,
-        transactionId: rollResult.transactionId || transactionId,
-        error: rollResult.error,
-        completedStepIds,
-        skippedStepIds,
-      };
-    }
-
-    completedStepIds.push(step.id);
-
-    if (step.purpose === "ATTACK") {
-      const stepResult = rollResult.stepResults[0];
+      completedStepIds.push(attackStep.id);
+      const stepResult = attackResult.stepResults[0];
       if (stepResult?.result) {
         attackContext = systemPack.classifyAttackResult(stepResult.result);
       }
     }
   }
+
+  const remainingSteps = action.sequence.steps.filter((step) => step.id !== attackStep?.id);
+  const runnableSteps = remainingSteps.filter((step) => {
+    if (step.execute === "ON_HIT") return !!attackContext;
+    if (step.execute === "ON_CRITICAL") return !!attackContext?.isCritical;
+    return true;
+  });
+
+  for (const step of remainingSteps) {
+    if (!runnableSteps.some((candidate) => candidate.id === step.id)) {
+      skippedStepIds.push(step.id);
+    }
+  }
+
+  if (runnableSteps.length === 0) {
+    return {
+      success: true,
+      transactionId,
+      completedStepIds,
+      skippedStepIds,
+    };
+  }
+
+  const resolvedSequence = systemPack.applyVariant(action, variantId, variables, {
+    isCritical: attackContext?.isCritical,
+  });
+  const stepsToRoll = resolvedSequence.steps.filter((step) => runnableSteps.some((candidate) => candidate.id === step.id));
+
+  const remainingResult = await diceAdapter.roll({
+    actionName: resolvedSequence.actionName,
+    variantId: resolvedSequence.variantId,
+    steps: stepsToRoll,
+  });
+
+  if (!remainingResult.success) {
+    const successfulStepIds = remainingResult.stepResults
+      .map((stepResult, index) => (stepResult.success ? stepsToRoll[index]?.id : undefined))
+      .filter((id): id is string => Boolean(id));
+
+    completedStepIds.push(...successfulStepIds);
+
+    return {
+      success: false,
+      transactionId: remainingResult.transactionId || transactionId,
+      error: remainingResult.error,
+      completedStepIds,
+      skippedStepIds,
+    };
+  }
+
+  completedStepIds.push(...stepsToRoll.map((step) => step.id));
 
   return {
     success: true,

@@ -29,6 +29,11 @@ export interface DiceAdapter {
   roll(sequence: ResolvedRollSequence): Promise<RollDispatchResult>;
 }
 
+interface PendingRoll {
+  resolve: (result: StepRollResult) => void;
+  timeoutId: ReturnType<typeof setTimeout>;
+}
+
 export class DicePlusAdapter implements DiceAdapter {
   id = "dice-plus";
 
@@ -68,20 +73,20 @@ export class DicePlusAdapter implements DiceAdapter {
     });
   }
 
-  private async rollStep(
+  private createRollRequestPayload(
     actionName: string,
     step: ResolvedRollStep,
     playerId: string,
-    playerName: string
-  ): Promise<StepRollResult> {
-    const stepRollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    playerName: string,
+    rollId: string
+  ): DicePlusRollRequestPayload {
     const cleanAction = actionName.replace(/[+\-*/]/g, " ").trim();
     const cleanLabel = step.label.replace(/[+\-*/]/g, " ").trim();
     const cleanExpression = step.resolvedExpression.replace(/\s+/g, "");
     const diceNotation = `${cleanExpression} # ${cleanAction}: ${cleanLabel}`;
 
-    const requestPayload: DicePlusRollRequestPayload = {
-      rollId: stepRollId,
+    return {
+      rollId,
       playerId,
       playerName,
       rollTarget: "everyone",
@@ -90,63 +95,6 @@ export class DicePlusAdapter implements DiceAdapter {
       timestamp: Date.now(),
       source: DICE_PLUS_PROTOCOL.source,
     };
-
-    return new Promise((resolve) => {
-      let finished = false;
-
-      const unsubResult = OBR.broadcast.onMessage(
-        DICE_PLUS_PROTOCOL.resultChannel,
-        (event) => {
-          const data = event.data as DicePlusRollResultEnvelope;
-          if (data && data.rollId === stepRollId) {
-            cleanup();
-            resolve({
-              success: true,
-              rollId: stepRollId,
-              result: data.result,
-            });
-          }
-        }
-      );
-
-      const unsubError = OBR.broadcast.onMessage(
-        DICE_PLUS_PROTOCOL.errorChannel,
-        (event) => {
-          const data = event.data as DicePlusRollErrorEnvelope;
-          if (data && data.rollId === stepRollId) {
-            cleanup();
-            resolve({
-              success: false,
-              rollId: stepRollId,
-              error: data.error || data.message || "Dice+ retornou erro",
-            });
-          }
-        }
-      );
-
-      function cleanup() {
-        if (!finished) {
-          finished = true;
-          unsubResult();
-          unsubError();
-        }
-      }
-
-      OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.rollChannel, requestPayload, {
-        destination: "ALL",
-      });
-
-      setTimeout(() => {
-        if (!finished) {
-          cleanup();
-          resolve({
-            success: false,
-            rollId: stepRollId,
-            error: "Timeout aguardando resultado do Dice+",
-          });
-        }
-      }, DICE_PLUS_PROTOCOL.stepTimeoutMs);
-    });
   }
 
   async roll(sequence: ResolvedRollSequence): Promise<RollDispatchResult> {
@@ -167,25 +115,81 @@ export class DicePlusAdapter implements DiceAdapter {
     const transactionId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const playerId = OBR.player.id;
     const playerName = await OBR.player.getName();
-
     const stepResults: StepRollResult[] = [];
+    const pendingRolls = new Map<string, PendingRoll>();
 
-    for (let i = 0; i < sequence.steps.length; i++) {
-      const step = sequence.steps[i];
-      const stepResult = await this.rollStep(sequence.actionName, step, playerId, playerName);
-      stepResults.push(stepResult);
-      if (!stepResult.success) {
-        return {
-          success: false,
-          transactionId,
-          error: stepResult.error,
-          stepResults,
-        };
-      }
+    const resolvePending = (result: StepRollResult) => {
+      const pending = pendingRolls.get(result.rollId);
+      if (!pending) return false;
+      clearTimeout(pending.timeoutId);
+      pendingRolls.delete(result.rollId);
+      pending.resolve(result);
+      return true;
+    };
 
-      if (i < sequence.steps.length - 1) {
-        await new Promise((res) => setTimeout(res, 500));
+    const unsubResult = OBR.broadcast.onMessage(DICE_PLUS_PROTOCOL.resultChannel, (event) => {
+      const data = event.data as DicePlusRollResultEnvelope;
+      if (!data?.rollId) return;
+      resolvePending({
+        success: true,
+        rollId: data.rollId,
+        result: data.result,
+      });
+    });
+
+    const unsubError = OBR.broadcast.onMessage(DICE_PLUS_PROTOCOL.errorChannel, (event) => {
+      const data = event.data as DicePlusRollErrorEnvelope;
+      if (!data?.rollId) return;
+      resolvePending({
+        success: false,
+        rollId: data.rollId,
+        error: data.error || data.message || "Dice+ retornou erro",
+      });
+    });
+
+    try {
+      for (let index = 0; index < sequence.steps.length; index += 1) {
+        const step = sequence.steps[index];
+        const rollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const payload = this.createRollRequestPayload(sequence.actionName, step, playerId, playerName, rollId);
+
+        const stepResult = await new Promise<StepRollResult>((resolve) => {
+          const timeoutId = setTimeout(() => {
+            resolvePending({
+              success: false,
+              rollId,
+              error: "Timeout aguardando resultado do Dice+",
+            });
+          }, DICE_PLUS_PROTOCOL.stepTimeoutMs);
+
+          pendingRolls.set(rollId, { resolve, timeoutId });
+          OBR.broadcast.sendMessage(DICE_PLUS_PROTOCOL.rollChannel, payload, {
+            destination: "ALL",
+          });
+        });
+
+        stepResults.push(stepResult);
+
+        if (!stepResult.success) {
+          return {
+            success: false,
+            transactionId,
+            error: stepResult.error,
+            stepResults,
+          };
+        }
+
+        if (index < sequence.steps.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, DICE_PLUS_PROTOCOL.settleDelayMs));
+        }
       }
+    } finally {
+      unsubResult();
+      unsubError();
+      for (const pending of pendingRolls.values()) {
+        clearTimeout(pending.timeoutId);
+      }
+      pendingRolls.clear();
     }
 
     return {
