@@ -1,0 +1,16 @@
+{
+  "name": "Quick Actions",
+  "version": "0.1.0",
+  "manifest_version": 1,
+  "description": "Barra de ações e rolagens rápidas para personagens no Owlbear Rodeo.",
+  "icon": "/icons/extension.svg",
+  "author": "Filipe",
+  "background_url": "/background.html",
+  "action": {
+    "title": "Quick Actions - Gerenciador",
+    "icon": "/icons/extension.svg",
+    "popover": "/manager.html",
+    "width": 420,
+    "height": 640
+  }
+}
