@@ -19,7 +19,12 @@
       <div class="form-group">
         <label>Ícone (RPG Awesome ID):</label>
         <div class="icon-selector">
-          <i :class="['ra', `ra-${localAction.icon}`]"></i>
+          <img
+            class="icon-preview"
+            :src="resolveIconUrl(localAction.icon)"
+            alt=""
+            aria-hidden="true"
+          />
           <select v-model="localAction.icon">
             <option v-for="icon in CURATED_ICONS" :key="icon" :value="icon">
               {{ icon }}
@@ -94,7 +99,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { ActionDefinition, RollStep } from '@/types/action';
-import { CURATED_ICONS } from '@/utils/iconResolver';
+import { CURATED_ICONS, resolveIconUrl } from '@/utils/iconResolver';
 
 const props = defineProps<{
   action: ActionDefinition;
@@ -211,8 +216,11 @@ input, select {
   align-items: center;
   gap: 10px;
 }
-.icon-selector i {
-  font-size: 24px;
+.icon-preview {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 .steps-section {
   margin-top: 15px;

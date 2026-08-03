@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = resolve(projectRoot, "node_modules/rpg-awesome/fonts/rpgawesome-webfont.svg");
 const outputDir = resolve(projectRoot, "public/icons/rpg-awesome");
+const customIconDir = resolve(projectRoot, "assets/icons");
 
-const curatedIcons = [
+const rpgAwesomeIcons = [
   "broadsword",
   "crossed-swords",
   "axe",
@@ -50,8 +51,8 @@ function generateAssets() {
     if (glyph["glyph-name"] && glyph.d) glyphs.set(glyph["glyph-name"], glyph.d);
   }
 
-  return new Map(
-    curatedIcons.map((icon) => {
+  const assets = new Map(
+    rpgAwesomeIcons.map((icon) => {
       const path = glyphs.get(icon);
       if (!path) throw new Error(`Missing RPG Awesome glyph: ${icon}`);
       const svg = [
@@ -63,6 +64,8 @@ function generateAssets() {
       return [`${icon}.svg`, svg];
     })
   );
+  assets.set("d20.svg", readFileSync(resolve(customIconDir, "d20.svg"), "utf8"));
+  return assets;
 }
 
 function check(assets) {

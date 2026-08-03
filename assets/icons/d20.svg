@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 1024 1024" fill="none" stroke="#ffffff" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <path d="M512 54 82 342l164 568h532l164-568L512 54Z"/>
+  <path d="m512 54-266 856M512 54l266 856M82 342h860M82 342l430 568 430-568M246 910l266-568 266 568"/>
+  <text x="512" y="610" fill="#ffffff" stroke="none" font-family="Arial, sans-serif" font-size="230" font-weight="700" text-anchor="middle">20</text>
+</svg>

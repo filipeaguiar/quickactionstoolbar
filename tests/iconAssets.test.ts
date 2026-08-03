@@ -31,17 +31,28 @@ describe("generated RPG Awesome SVG assets", () => {
     ).not.toThrow();
   });
 
-  it.each(CURATED_ICONS)("preserves the %s source glyph in a common SVG viewport", (icon) => {
-    const svg = readFileSync(resolve(iconDir, `${icon}.svg`), "utf8");
+  it.each(CURATED_ICONS.filter((icon) => icon !== "d20"))(
+    "preserves the %s source glyph in a common SVG viewport",
+    (icon) => {
+      const svg = readFileSync(resolve(iconDir, `${icon}.svg`), "utf8");
 
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-    expect(svg).toContain('width="24" height="24"');
+      expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+      expect(svg).toContain('width="24" height="24"');
+      expect(svg).toContain('viewBox="0 0 1024 1024"');
+      expect(svg).toContain('fill="#ffffff"');
+      expect(svg).toContain('transform="translate(0 960) scale(1 -1)"');
+      expect(svg).toContain(`d="${sourceGlyphPath(icon)}"`);
+      expect(svg).not.toMatch(/<(?:rect|image)\b/);
+      expect(svg.trimEnd().endsWith("</svg>")).toBe(true);
+    }
+  );
+
+  it("provides a project-owned d20 icon for generic test rolls", () => {
+    const svg = readFileSync(resolve(iconDir, "d20.svg"), "utf8");
     expect(svg).toContain('viewBox="0 0 1024 1024"');
-    expect(svg).toContain('fill="#ffffff"');
-    expect(svg).toContain('transform="translate(0 960) scale(1 -1)"');
-    expect(svg).toContain(`d="${sourceGlyphPath(icon)}"`);
-    expect(svg).not.toMatch(/<(?:rect|image)\b/);
-    expect(svg.trimEnd().endsWith("</svg>")).toBe(true);
+    expect(svg).toContain('stroke="#ffffff"');
+    expect(svg).toContain(">20</text>");
+    expect(svg).not.toContain("<image");
   });
 
   it("provides a standalone project-owned three-dot overflow icon", () => {

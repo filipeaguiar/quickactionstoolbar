@@ -31,9 +31,9 @@ The manager SHALL show the owner pending Firebase join requests alongside curren
 - **WHEN** the owner removes a membership
 - **THEN** the member loses profile access and their action toolbar is cleared after synchronization
 
-### Requirement: Backend and Migration Status UI
-The manager SHALL expose actionable states for owner sign-in, workspace initialization, legacy migration, online synchronization, validation errors, and recoverable backend failures.
+### Requirement: Backend and Legacy Data Status UI
+The manager SHALL expose actionable states for owner sign-in, workspace initialization, legacy export/discard, online synchronization, validation errors, and recoverable backend failures.
 
-#### Scenario: Existing metadata requires migration
-- **WHEN** the manager detects valid legacy Room Metadata and no completed Firestore migration
-- **THEN** it presents an explicit GM-only migration action and does not silently delete or overwrite legacy data
+#### Scenario: Existing metadata is detected
+- **WHEN** the manager detects valid legacy Room Metadata
+- **THEN** it presents explicit GM-only export and discard actions and does not silently import, delete, or overwrite legacy data

@@ -13,6 +13,7 @@ export const CURATED_ICONS = [
   "footprint",
   "scroll-unfurled",
   "dice-six",
+  "d20",
   "cog",
 ];
 

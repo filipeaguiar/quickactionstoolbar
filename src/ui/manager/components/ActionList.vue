@@ -40,7 +40,16 @@ function createAction() {
     systemId: "dnd5e-2024",
     sequence: {
       version: 1,
-      steps: [],
+      steps: [
+        {
+          id: "step-" + Date.now(),
+          label: "Ataque",
+          purpose: "ATTACK",
+          expression: "1d20",
+          visibility: "PUBLIC",
+          execute: "ALWAYS"
+        }
+      ],
       stopOnError: true
     },
     variantPolicy: {

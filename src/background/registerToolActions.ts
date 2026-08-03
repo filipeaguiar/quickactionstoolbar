@@ -6,15 +6,15 @@ import {
   openActionPopover,
   openOverflowPopover,
 } from "./popoverManager";
+import type { ActionDefinition } from "@/types/action";
+import { DnD2024SystemPack } from "@/systems/dnd2024";
 
-export interface SimpleActionItem {
-  id: string;
-  name: string;
-  shortLabel?: string;
-  icon: string;
-  enabled: boolean;
-  sortOrder: number;
-}
+export type SimpleActionItem = ActionDefinition;
+export type DirectActionHandler = (actionId: string, variantId: string) => Promise<void>;
+
+const systemPack = new DnD2024SystemPack();
+let currentActions = new Map<string, SimpleActionItem>();
+let directActionHandler: DirectActionHandler | null = null;
 
 let registeredActionIds: string[] = [];
 let lastToolbarSignature: string | null = null;
@@ -40,8 +40,13 @@ function toolbarSignature(actions: SimpleActionItem[]): string {
   );
 }
 
-async function performSync(actions: SimpleActionItem[]): Promise<void> {
+async function performSync(
+  actions: SimpleActionItem[],
+  onDirectAction: DirectActionHandler | null
+): Promise<void> {
   const normalizedActions = visibleActions(actions);
+  currentActions = new Map(normalizedActions.map((action) => [action.id, action]));
+  directActionHandler = onDirectAction;
   const nextSignature = toolbarSignature(normalizedActions);
 
   if (nextSignature === lastToolbarSignature) {
@@ -89,8 +94,22 @@ async function performSync(actions: SimpleActionItem[]): Promise<void> {
           },
         },
       ],
-      onClick(_context, elementId) {
-        openActionPopover(action.id, elementId);
+      async onClick(_context, elementId) {
+        const currentAction = currentActions.get(action.id);
+        if (!currentAction) {
+          await OBR.notification.show("A ação selecionada não está disponível.", "ERROR");
+          return;
+        }
+        const variants = systemPack.getAvailableVariants(currentAction);
+        if (variants.length === 1 && directActionHandler) {
+          await directActionHandler(currentAction.id, variants[0].id);
+          return;
+        }
+        if (variants.length === 0) {
+          await OBR.notification.show("A ação não possui uma variante executável.", "ERROR");
+          return;
+        }
+        await openActionPopover(currentAction.id, elementId);
       },
     });
   }
@@ -123,11 +142,14 @@ async function performSync(actions: SimpleActionItem[]): Promise<void> {
  * Sincroniza ToolActions em série e preserva os elementos nativos quando a
  * configuração visual efetiva não mudou, mantendo popovers ancorados estáveis.
  */
-export function syncToolActions(actions: SimpleActionItem[]): Promise<void> {
+export function syncToolActions(
+  actions: SimpleActionItem[],
+  onDirectAction: DirectActionHandler | null = null
+): Promise<void> {
   const snapshot = actions.map((action) => ({ ...action }));
   syncQueue = syncQueue.then(
-    () => performSync(snapshot),
-    () => performSync(snapshot)
+    () => performSync(snapshot, onDirectAction),
+    () => performSync(snapshot, onDirectAction)
   );
   return syncQueue;
 }

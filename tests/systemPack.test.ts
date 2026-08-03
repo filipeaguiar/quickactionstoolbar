@@ -55,6 +55,32 @@ describe("D&D 2024 System Pack AST Transformations", () => {
 
   const variables = { str: 4, prof: 3 };
 
+  it("offers only normal mode when an action has no attack, check, or save", () => {
+    const otherAction: ActionDefinition = {
+      ...mockAction,
+      id: "other-action",
+      kind: "UTILITY",
+      variantPolicy: { ...mockAction.variantPolicy, customVariants: [] },
+      sequence: {
+        ...mockAction.sequence,
+        steps: [
+          {
+            id: "other-step",
+            label: "Other",
+            purpose: "OTHER",
+            expression: "1d6",
+            visibility: "PUBLIC",
+            execute: "ALWAYS",
+          },
+        ],
+      },
+    };
+
+    expect(new DnD2024SystemPack().getAvailableVariants(otherAction)).toEqual([
+      { id: "NORMAL", name: "Normal" },
+    ]);
+  });
+
   it("should apply Advantage: 1d20 -> 2d20kh1", () => {
     const ast = parseExpression("1d20 + 3");
     const transformed = applyAdvantageToAST(ast, "ATTACK", "ATTACK");

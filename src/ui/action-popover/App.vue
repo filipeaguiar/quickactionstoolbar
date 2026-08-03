@@ -1,35 +1,29 @@
 <template>
   <div class="popover-panel">
-    <h3 class="action-title">{{ action?.name || actionName }}</h3>
+    <template v-if="action">
+      <div class="action-group">
+        <h3 class="action-title">{{ action.name }}</h3>
 
-    <div class="variant-toolbar" role="toolbar" aria-label="Modo da rolagem">
-      <button
-        class="variant-btn btn-normal"
-        :disabled="isRolling"
-        title="Rolagem normal"
-        @click="selectVariant('NORMAL')"
-      >
-        <img class="action-mode-icon" :src="actionIconUrl" alt="" aria-hidden="true" />
-      </button>
-
-      <button
-        class="variant-btn btn-advantage"
-        :disabled="isRolling"
-        title="Rolagem com vantagem"
-        @click="selectVariant('ADVANTAGE')"
-      >
-        <img class="action-mode-icon" :src="actionIconUrl" alt="" aria-hidden="true" />
-      </button>
-
-      <button
-        class="variant-btn btn-disadvantage"
-        :disabled="isRolling"
-        title="Rolagem com desvantagem"
-        @click="selectVariant('DISADVANTAGE')"
-      >
-        <img class="action-mode-icon" :src="actionIconUrl" alt="" aria-hidden="true" />
-      </button>
-    </div>
+        <div class="variant-toolbar" role="toolbar" aria-label="Modo da rolagem">
+          <button
+            v-for="variant in availableVariants"
+            :key="variant.id"
+            class="variant-btn"
+            :class="variantButtonClass(variant.id)"
+            :disabled="isRolling"
+            :title="variant.name"
+            @click="selectVariant(variant.id)"
+          >
+            <img
+              class="action-mode-icon"
+              :src="resolveIconUrl(variant.icon || action.icon)"
+              alt=""
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      </div>
+    </template>
 
     <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
   </div>
@@ -39,94 +33,69 @@
 import { computed, ref, onMounted } from "vue";
 import OBR from "@owlbear-rodeo/sdk";
 import { ACTION_POPOVER_ID } from "@/background/popoverManager";
-import { getRoomData } from "@/storage/roomProfileRepository";
+import { FirebaseAuthSessionService } from "@/integrations/firebase/authSession";
+import { getFirebaseServices } from "@/integrations/firebase/client";
+import { FirestoreProfileActionRepository } from "@/storage/firebase/firestoreRepositories";
+import { FirestoreMembershipRepository } from "@/storage/firebase/firestoreMembershipRepository";
+import { ActionPopoverContextResolver } from "@/core/actionPopoverContextResolver";
 import { DnD2024SystemPack } from "@/systems/dnd2024";
 import { DicePlusAdapter } from "@/integrations/dice-plus/adapter";
 import { ActionDefinition } from "@/types/action";
 import { executeAction } from "@/core/actionExecutor";
+import { mapSuccessfulExecutionToHistory } from "@/core/rollHistoryMapper";
+import { saveRollHistoryNonBlocking } from "@/core/rollHistoryPersistence";
+import { FirestoreRollHistoryRepository } from "@/storage/firebase/firestoreRollHistoryRepository";
 import { resolveIconUrl } from "@/utils/iconResolver";
 
-const actionName = ref("Ação do Personagem");
 const action = ref<ActionDefinition | null>(null);
 const variables = ref<Record<string, number>>({});
 const errorMessage = ref("");
 const isRolling = ref(false);
-const actionIconUrl = computed(() => resolveIconUrl(action.value?.icon || "crossed-swords"));
+const assignedProfileId = ref("");
+const firebaseUid = ref("");
 
 const systemPack = new DnD2024SystemPack();
+const availableVariants = computed(() =>
+  action.value ? systemPack.getAvailableVariants(action.value) : []
+);
 const diceAdapter = new DicePlusAdapter();
+const firebase = getFirebaseServices();
+const authService = new FirebaseAuthSessionService(firebase.auth);
+const profileRepository = new FirestoreProfileActionRepository(firebase.firestore);
+const membershipRepository = new FirestoreMembershipRepository(firebase.firestore);
+const contextResolver = new ActionPopoverContextResolver({
+  membershipRepository,
+  profileRepository,
+});
+const historyRepository = new FirestoreRollHistoryRepository(firebase.firestore);
 
 onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const actionId = urlParams.get("actionId");
-  if (actionId) {
-    actionName.value = actionId.replace(/-/g, " ");
-  }
 
   try {
     if (!OBR.isReady) {
       await new Promise<void>((resolve) => OBR.onReady(() => resolve()));
     }
-    const roomData = await getRoomData();
-    const playerId = OBR.player.id;
-    if (roomData) {
-      const profileId = roomData.playerAssignments[playerId] || Object.keys(roomData.profiles)[0];
-
-      if (profileId && roomData.profiles[profileId]) {
-        const currentProfile = roomData.profiles[profileId];
-        variables.value = currentProfile.variables || {};
-        const foundAction = currentProfile.actions.find((a) => a.id === actionId);
-        if (foundAction) {
-          action.value = foundAction;
-        }
-      }
-    }
+    const session =
+      (await authService.waitForInitialState()) ?? (await authService.ensureAnonymousPlayer());
+    firebaseUid.value = session.uid;
+    const context = await contextResolver.resolve(OBR.room.id, session.uid, actionId || "");
+    assignedProfileId.value = context.profileId;
+    variables.value = context.variables;
+    action.value = context.action;
+    console.debug(`Contexto do popover carregado por ${context.source}.`);
   } catch (err) {
     console.warn("Erro ao carregar dados no popover:", err);
+    errorMessage.value =
+      err instanceof Error ? err.message : "Falha ao carregar a ação selecionada.";
   }
 });
 
-function createFallbackAction(): ActionDefinition {
-  return {
-    id: "fallback-action",
-    name: actionName.value,
-    icon: "sword",
-    kind: "ATTACK",
-    enabled: true,
-    sortOrder: 0,
-    systemId: "dnd5e-2024",
-    tags: [],
-    variantPolicy: {
-      allowNormal: true,
-      allowAdvantage: true,
-      allowDisadvantage: true,
-      allowCritical: true,
-      customVariants: [],
-    },
-    sequence: {
-      version: 1,
-      stopOnError: true,
-      steps: [
-        {
-          id: "step-1",
-          label: "Ataque",
-          purpose: "ATTACK",
-          expression: "1d20 + 5",
-          visibility: "PUBLIC",
-          execute: "ALWAYS",
-        },
-        {
-          id: "step-2",
-          label: "Dano",
-          purpose: "DAMAGE",
-          expression: "1d8 + 3",
-          visibility: "PUBLIC",
-          execute: "ON_HIT",
-          criticalBehavior: "DOUBLE_DICE",
-        },
-      ],
-    },
-  };
+function variantButtonClass(variantId: string): string {
+  if (variantId === "ADVANTAGE") return "btn-advantage";
+  if (variantId === "DISADVANTAGE") return "btn-disadvantage";
+  return "btn-normal";
 }
 
 async function selectVariant(variant: string) {
@@ -137,9 +106,9 @@ async function selectVariant(variant: string) {
   isRolling.value = true;
 
   try {
-    const selectedAction = action.value ?? createFallbackAction();
+    if (!action.value) throw new Error("A ação ainda não foi carregada do Firebase.");
     const result = await executeAction({
-      action: selectedAction,
+      action: action.value,
       variantId: variant,
       variables: variables.value,
       systemPack,
@@ -151,6 +120,26 @@ async function selectVariant(variant: string) {
       errorMessage.value = result.error || "Falha ao executar rolagem no Dice+.";
       isRolling.value = false;
       return;
+    }
+
+    const history = mapSuccessfulExecutionToHistory({
+      uid: firebaseUid.value,
+      profileId: assignedProfileId.value,
+      action: action.value,
+      variantId: variant,
+      execution: result,
+    });
+    const historyPersistence = await saveRollHistoryNonBlocking(
+      historyRepository,
+      OBR.room.id,
+      history
+    );
+    if (history && !historyPersistence.saved) {
+      console.warn(
+        "Rolagem concluída, mas o histórico não foi salvo:",
+        historyPersistence.error
+      );
+      await OBR.notification.show("Rolagem concluída; histórico não foi salvo.", "WARNING");
     }
   } catch (err) {
     console.error("Erro ao executar rolagem:", err);
@@ -194,27 +183,39 @@ body,
   gap: 0.45rem;
 }
 
-.action-title {
+.action-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   max-width: 100%;
+  gap: 0.3rem;
+}
+
+.action-title {
+  box-sizing: border-box;
+  max-width: 156px;
   margin: 0;
+  padding: 0.3rem 0.5rem;
   overflow: hidden;
+  border-radius: 5px;
+  background: #111827;
   color: #fff;
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.2;
-  text-align: center;
+  text-align: left;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   text-transform: capitalize;
   white-space: nowrap;
 }
 
 .variant-toolbar {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: stretch;
-  width: 100%;
-  gap: 0.35rem;
+  width: max-content;
+  max-width: 100%;
+  gap: 0;
 }
 
 .variant-btn {
@@ -223,7 +224,7 @@ body,
   height: 52px;
   padding: 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 7px;
+  border-radius: 0;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
   color: #fff;
   cursor: pointer;
@@ -232,6 +233,18 @@ body,
   justify-content: center;
   align-items: center;
   transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.variant-btn + .variant-btn {
+  margin-left: -1px;
+}
+
+.variant-btn:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.variant-btn:last-child {
+  border-radius: 0 7px 7px 0;
 }
 
 .variant-btn:hover:not(:disabled) {

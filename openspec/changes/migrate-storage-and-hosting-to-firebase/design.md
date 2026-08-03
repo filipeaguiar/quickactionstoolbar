@@ -15,7 +15,7 @@ The desired ownership model is room-centric: the GM creates every profile and ac
 - Enforce owner-only configuration writes and member/profile-scoped reads in Firestore Security Rules.
 - Preserve action availability across scene changes and transient network failures.
 - Store successful Dice+ outcomes as append-only, paginated history without coupling roll success to history availability.
-- Migrate existing room data safely and host the complete extension on Firebase Hosting.
+- Let the GM explicitly export and discard legacy room data, start the Firebase workspace empty, and host the complete extension on Firebase Hosting.
 
 **Non-Goals:**
 
@@ -61,7 +61,7 @@ The desired ownership model is room-centric: the GM creates every profile and ac
 
 8. **Keep roll execution independent from history persistence.** After `executeAction` obtains correlated Dice+ step results, a history mapper stores a bounded summary using a server timestamp. A failed history write produces non-blocking diagnostics/notification and may be retried, but does not change a successful physical dice roll into a failed roll. Members may create records only for their own UID and assigned profile; records are immutable to players. Retention is controlled by a room setting and cleanup mechanism.
 
-9. **Migrate explicitly and idempotently.** Only the signed-in owner can start migration. The migrator validates current metadata, creates/claims the room workspace, writes profiles/actions/members in batches, records a migration fingerprint, verifies reads, and only then replaces the large extension payload with a compact schema/migration marker. Re-running the same migration must not duplicate actions. The old payload is exported or retained until verification so rollback remains possible.
+9. **Do not import legacy configuration.** Existing profiles, actions, variables, and assignments will not be copied to Firestore. The owner may export the validated legacy payload as JSON and then explicitly replace it with a compact Firebase schema marker. Detection never deletes data automatically, and discard requires confirmation. This avoids insecure assignment conversion and is acceptable because the current room data is intentionally being recreated.
 
 10. **Deploy static output through Firebase Hosting.** Hosting serves `dist`, including `manifest.json`, HTML entry points, icon assets, and hashed bundles. Hashed assets receive long immutable caching; the manifest and HTML entry points receive no-cache/revalidation headers. Preview channels validate Owlbear embedding before the production manifest URL is changed. Environment-specific Firebase project configuration is supplied at build time and no service-account secret is shipped to the browser.
 
@@ -75,22 +75,21 @@ The desired ownership model is room-centric: the GM creates every profile and ac
 - **[Firestore outage could remove action access]** → Cache the last validated assignment/actions and show offline state; never overwrite cached valid data with an incomplete snapshot.
 - **[Realtime listeners can increase billed reads]** → Scope listeners by membership/profile, open broad manager listeners only while needed, and paginate history.
 - **[Roll history can grow without bound]** → Store bounded summaries, paginate queries, configure retention, and avoid raw payload storage.
-- **[Migration can partially write data]** → Use idempotent document IDs, batches, a fingerprint/state machine, post-write verification, and retain rollback data until completion.
+- **[The GM could discard legacy data accidentally]** → Require a prior JSON export, explicit confirmation, owner authorization, and keep discard separate from workspace initialization.
 - **[Changing hosting origin resets origin-scoped browser state]** → Move hosting before relying on anonymous identities, choose the production domain early, and test popup authentication inside Owlbear's iframe.
 - **[Google popup authentication may be constrained by iframe/browser policies]** → Trigger sign-in from an explicit user action, configure authorized domains, test mobile browsers, and provide a top-level or redirect fallback if popup flow is blocked.
 
 ## Migration Plan
 
-1. Create development and production Firebase projects; configure Auth providers, Firestore, indexes, rules, Hosting, and emulator files.
-2. Add repository interfaces and Firebase implementations behind a feature/configuration switch while retaining the metadata repository.
+1. Create the Firebase project; configure Auth providers, Firestore, indexes, rules, Hosting, and emulator files.
+2. Add repository interfaces and Firebase implementations behind a feature/configuration switch while retaining legacy metadata only for detection/export.
 3. Deploy a preview Hosting channel and validate manifest loading, iframe behavior, Auth, Firestore listeners, Dice+, and mobile browsers.
-4. Add owner initialization, join approval, profile assignment, rules, and migration UI.
-5. Migrate a test room, compare profiles/actions and toolbar behavior, then verify rollback with the retained metadata payload.
+4. Add owner initialization, join approval, profile assignment, rules, and legacy export/discard UI.
+5. Export the existing room payload, explicitly discard it, and recreate the small set of profiles and actions in Firestore.
 6. Deploy production Hosting and update the Owlbear extension manifest URL.
-7. Let each existing room's GM run explicit migration. Keep the old data until Firestore verification succeeds, then reduce metadata to the compact marker if required.
-8. After an observation period, remove metadata write paths and eventually retire legacy capacity UI that no longer represents configuration storage.
+7. After an observation period, remove metadata write paths and retire legacy capacity UI that no longer represents configuration storage.
 
-Rollback uses the previous Hosting release and the retained/exported Room Metadata payload. Firestore documents are additive during migration and need not be deleted to restore the old client.
+Rollback uses the previous Hosting release and the exported legacy JSON file. Discard is never automatic and does not delete Firestore data.
 
 ## Open Questions
 

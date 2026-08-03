@@ -10,7 +10,11 @@ const sdk = vi.hoisted(() => ({
     create: vi.fn().mockResolvedValue(undefined),
   },
   popover: {
+    open: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
+  },
+  notification: {
+    show: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -40,6 +44,92 @@ describe("native Owlbear icon registration", () => {
     const contextMenu = sdk.contextMenu.create.mock.calls[0][0];
     expectAbsoluteSvgUrl(tool.icons[0].icon, "/icons/rpg-awesome/crossed-swords.svg");
     expectAbsoluteSvgUrl(contextMenu.icons[0].icon, "/icons/rpg-awesome/cog.svg");
+  });
+
+  it("executes a single-mode OTHER action directly without opening a popover", async () => {
+    const action = {
+      id: "other-direct",
+      name: "Other",
+      icon: "crossed-swords",
+      kind: "UTILITY" as const,
+      enabled: true,
+      sortOrder: 0,
+      systemId: "dnd5e-2024" as const,
+      tags: [],
+      sequence: {
+        version: 1 as const,
+        stopOnError: true,
+        steps: [
+          {
+            id: "step-other",
+            label: "Other",
+            purpose: "OTHER" as const,
+            expression: "1d6",
+            visibility: "PUBLIC" as const,
+            execute: "ALWAYS" as const,
+          },
+        ],
+      },
+      variantPolicy: {
+        allowNormal: true,
+        allowAdvantage: true,
+        allowDisadvantage: true,
+        allowCritical: true,
+        customVariants: [],
+      },
+    };
+    const executeDirectly = vi.fn().mockResolvedValue(undefined);
+
+    await syncToolActions([action], executeDirectly);
+    const registration = sdk.tool.createAction.mock.calls.at(-1)?.[0];
+    await registration.onClick({}, "element-1");
+
+    expect(executeDirectly).toHaveBeenCalledWith(action.id, "NORMAL");
+    expect(sdk.popover.open).not.toHaveBeenCalled();
+  });
+
+  it("opens the popover when an action offers multiple modes", async () => {
+    const action = {
+      id: "attack-modes",
+      name: "Attack",
+      icon: "crossed-swords",
+      kind: "ATTACK" as const,
+      enabled: true,
+      sortOrder: 0,
+      systemId: "dnd5e-2024" as const,
+      tags: [],
+      sequence: {
+        version: 1 as const,
+        stopOnError: true,
+        steps: [
+          {
+            id: "step-attack",
+            label: "Attack",
+            purpose: "ATTACK" as const,
+            expression: "1d20",
+            visibility: "PUBLIC" as const,
+            execute: "ALWAYS" as const,
+          },
+        ],
+      },
+      variantPolicy: {
+        allowNormal: true,
+        allowAdvantage: true,
+        allowDisadvantage: true,
+        allowCritical: true,
+        customVariants: [],
+      },
+    };
+    const executeDirectly = vi.fn().mockResolvedValue(undefined);
+
+    await syncToolActions([action], executeDirectly);
+    const registration = sdk.tool.createAction.mock.calls.at(-1)?.[0];
+    await registration.onClick({}, "element-2");
+
+    expect(executeDirectly).not.toHaveBeenCalled();
+    expect(sdk.popover.open).toHaveBeenCalledWith(
+      expect.objectContaining({ anchorElementId: "element-2" })
+    );
   });
 
   it("registers action fallback and project-owned overflow URLs", async () => {

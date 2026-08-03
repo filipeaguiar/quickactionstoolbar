@@ -2,10 +2,160 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Secure default until the owner/member rules are implemented and covered
-    // by Firebase Emulator tests.
-    match /{document=**} {
-      allow read, write: if false;
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomDocument(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId));
+    }
+
+    function isOwner(roomId) {
+      return signedIn()
+        && roomDocument(roomId).data.ownerUid == request.auth.uid;
+    }
+
+    function memberDocument(roomId) {
+      return get(
+        /databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid)
+      );
+    }
+
+    function isMember(roomId) {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid)
+        );
+    }
+
+    function isAssignedProfile(roomId, profileId) {
+      return isMember(roomId)
+        && memberDocument(roomId).data.profileId == profileId;
+    }
+
+    function validRoomCreate() {
+      return request.resource.data.keys().hasOnly([
+          'schemaVersion', 'ownerUid', 'settings', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.schemaVersion == 2
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validProfile(profileId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'name', 'systemId', 'variables', 'createdAt', 'updatedAt', 'updatedBy'
+        ])
+        && request.resource.data.id == profileId
+        && request.resource.data.name is string
+        && request.resource.data.systemId == 'dnd5e-2024'
+        && request.resource.data.variables is map
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validAction(actionId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'name', 'shortLabel', 'description', 'icon', 'kind', 'enabled',
+          'sortOrder', 'systemId', 'sequence', 'variantPolicy', 'tags'
+        ])
+        && request.resource.data.id == actionId
+        && request.resource.data.name is string
+        && request.resource.data.icon is string
+        && request.resource.data.enabled is bool
+        && request.resource.data.sortOrder is number
+        && request.resource.data.systemId == 'dnd5e-2024'
+        && request.resource.data.sequence is map
+        && request.resource.data.variantPolicy is map
+        && request.resource.data.tags is list;
+    }
+
+    function validJoinRequest(uid) {
+      return request.resource.data.keys().hasOnly([
+          'uid', 'owlbearPlayerId', 'playerName', 'requestedAt'
+        ])
+        && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.owlbearPlayerId is string
+        && request.resource.data.playerName is string
+        && request.resource.data.requestedAt is timestamp;
+    }
+
+    function validMember(uid) {
+      return request.resource.data.keys().hasOnly([
+          'uid', 'owlbearPlayerId', 'playerName', 'profileId', 'approvedAt', 'approvedBy'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.profileId is string
+        && request.resource.data.approvedAt is timestamp
+        && request.resource.data.approvedBy == request.auth.uid;
+    }
+
+    function validMemberRoll(roomId, rollId) {
+      return isMember(roomId)
+        && request.resource.data.keys().hasOnly([
+          'id', 'uid', 'profileId', 'actionId', 'actionName', 'variant',
+          'critical', 'automaticMiss', 'steps', 'createdAt'
+        ])
+        && request.resource.data.id == rollId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.profileId == memberDocument(roomId).data.profileId
+        && request.resource.data.actionId is string
+        && request.resource.data.actionName is string
+        && request.resource.data.variant in ['NORMAL', 'ADVANTAGE', 'DISADVANTAGE']
+        && request.resource.data.critical is bool
+        && request.resource.data.automaticMiss is bool
+        && request.resource.data.steps is list
+        && request.resource.data.steps.size() > 0
+        && request.resource.data.steps.size() <= 20
+        && request.resource.data.createdAt == request.time;
+    }
+
+    match /rooms/{roomId} {
+      // Authenticated clients may detect room initialization, but room IDs are
+      // locators rather than credentials and grant no profile access.
+      allow read: if signedIn();
+      allow create: if signedIn() && validRoomCreate();
+      allow update: if isOwner(roomId)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.schemaVersion == 2;
+      allow delete: if isOwner(roomId);
+
+      match /profiles/{profileId} {
+        allow read: if isOwner(roomId) || isAssignedProfile(roomId, profileId);
+        allow create, update: if isOwner(roomId) && validProfile(profileId);
+        allow delete: if isOwner(roomId);
+
+        match /actions/{actionId} {
+          allow read: if isOwner(roomId) || isAssignedProfile(roomId, profileId);
+          allow create, update: if isOwner(roomId) && validAction(actionId);
+          allow delete: if isOwner(roomId);
+        }
+      }
+
+      match /members/{uid} {
+        allow read: if isOwner(roomId) || (signedIn() && uid == request.auth.uid);
+        allow create, update: if isOwner(roomId) && validMember(uid);
+        allow delete: if isOwner(roomId);
+      }
+
+      match /joinRequests/{uid} {
+        allow read: if isOwner(roomId) || (signedIn() && uid == request.auth.uid);
+        allow create, update: if signedIn() && validJoinRequest(uid);
+        allow delete: if isOwner(roomId) || (signedIn() && uid == request.auth.uid);
+      }
+
+      match /migrations/{migrationId} {
+        allow read, write: if isOwner(roomId);
+      }
+
+      match /rolls/{rollId} {
+        allow read: if isOwner(roomId);
+        allow create: if isOwner(roomId) || (signedIn() && validMemberRoll(roomId, rollId));
+        allow update: if false;
+        allow delete: if isOwner(roomId);
+      }
     }
   }
 }

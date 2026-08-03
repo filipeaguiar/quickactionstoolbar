@@ -106,10 +106,13 @@ export class DnD2024SystemPack implements SystemPack {
     if (action.variantPolicy.allowNormal) {
       variants.push({ id: "NORMAL", name: "Normal" });
     }
-    if (action.variantPolicy.allowAdvantage) {
+    const supportsD20Modes = action.sequence.steps.some((step) =>
+      ["ATTACK", "CHECK", "SAVE"].includes(step.purpose)
+    );
+    if (action.variantPolicy.allowAdvantage && supportsD20Modes) {
       variants.push({ id: "ADVANTAGE", name: "Vantagem" });
     }
-    if (action.variantPolicy.allowDisadvantage) {
+    if (action.variantPolicy.allowDisadvantage && supportsD20Modes) {
       variants.push({ id: "DISADVANTAGE", name: "Desvantagem" });
     }
 

@@ -25,7 +25,7 @@ The extension shell SHALL initialize Firebase and resolve authentication before 
 - **THEN** the shell subscribes only to workspace data authorized for the current UID
 
 ### Requirement: Explicit Access States
-The extension UI SHALL distinguish loading, owner-sign-in-required, workspace-not-initialized, awaiting-approval, assigned, offline-cache, authorization-denied, migration-required, and backend-error states.
+The extension UI SHALL distinguish loading, owner-sign-in-required, workspace-not-initialized, legacy-data-detected, awaiting-approval, assigned, offline-cache, authorization-denied, and backend-error states.
 
 #### Scenario: Player is waiting for GM approval
 - **WHEN** an anonymous session has a join request but no membership

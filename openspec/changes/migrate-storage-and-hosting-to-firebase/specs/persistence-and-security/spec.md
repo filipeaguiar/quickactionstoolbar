@@ -42,16 +42,16 @@ The extension SHALL cache the last validated assigned profile and action set for
 - **WHEN** the backend confirms that the player's membership or profile assignment was removed
 - **THEN** the extension clears the registered actions and associated cached assignment
 
-### Requirement: Idempotent Metadata Migration
-The extension SHALL provide an explicit owner-controlled migration that validates legacy metadata, writes deterministic Firestore documents, records migration state, verifies the result, and only then removes the large legacy payload.
+### Requirement: Explicit Legacy Metadata Discard
+The extension SHALL NOT import legacy profiles, actions, variables, or assignments into Firestore. It SHALL let the authenticated owner export valid legacy data and explicitly replace it with a compact Firebase marker only after confirmation.
 
-#### Scenario: GM migrates an existing room
-- **WHEN** the signed-in owner starts migration for valid legacy Room Metadata
-- **THEN** all profiles, actions, settings, and assignments are written and verified before metadata is compacted
+#### Scenario: Existing room opens on the Firebase version
+- **WHEN** valid legacy Room Metadata is detected
+- **THEN** the Firestore workspace starts empty and the legacy payload remains unchanged until the owner chooses export and discard
 
-#### Scenario: Interrupted migration is retried
-- **WHEN** migration resumes after a partial failure
-- **THEN** deterministic identifiers and migration state prevent duplicate profiles or actions
+#### Scenario: GM discards legacy data
+- **WHEN** the owner exports the legacy JSON and confirms discard
+- **THEN** the extension replaces the large payload with a compact marker without creating profiles, actions, or memberships from the old data
 
 ## REMOVED Requirements
 

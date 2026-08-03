@@ -11,7 +11,7 @@ A single profile with only two actions already consumes about 13% of Owlbear Rod
 - Add a join and membership flow that lets the GM associate connected Owlbear players with profiles; players can only read and execute their assigned actions.
 - Persist correlated attack and damage outcomes as append-only roll history records with pagination and retention controls.
 - Add local cache/loading/error behavior so temporary backend failures do not silently replace or corrupt room configuration.
-- Migrate an existing metadata-backed room into Firestore through an explicit, idempotent GM-controlled operation, retaining a compact migration/schema marker only when needed.
+- Start the Firestore workspace empty for existing rooms; provide an explicit GM-controlled export-and-discard operation for legacy metadata instead of importing old profiles, actions, or assignments.
 - Deploy the Vite production bundle, manifest, pages, and static assets on Firebase Hosting with production and preview configuration.
 
 ## Capabilities
@@ -28,4 +28,4 @@ A single profile with only two actions already consumes about 13% of Owlbear Rod
 
 ## Impact
 
-This change affects storage repositories, authorization, room initialization, manager workflows, background toolbar synchronization, action execution result handling, and deployment. It adds Firebase SDK dependencies and project configuration for Authentication, Firestore, Hosting, Security Rules, indexes, and optionally emulator-based tests or privileged Cloud Functions. Existing Room Metadata data requires migration, and the extension installation URL will move to the Firebase Hosting manifest URL.
+This change affects storage repositories, authorization, room initialization, manager workflows, background toolbar synchronization, action execution result handling, and deployment. It adds Firebase SDK dependencies and project configuration for Authentication, Firestore, Hosting, Security Rules, indexes, and optionally emulator-based tests or privileged Cloud Functions. Existing Room Metadata data will not be imported and can be exported then explicitly discarded by the GM; the extension installation URL will move to the Firebase Hosting manifest URL.
